@@ -9,19 +9,19 @@ import matplotlib.pyplot as plt
 Series_Length = 6284
 
 g_input_size = 3
-g_hidden_size = 1500
+g_hidden_size = 2500
 g_output_size = Series_Length
 
 d_input_size = Series_Length
-d_hidden_size = 1500
+d_hidden_size = 2500
 d_output_size = 1
 
-d_minibatch_size = 15
-g_minibatch_size = 10
-num_epochs = 500
+d_minibatch_size = 1
+g_minibatch_size = 1
+num_epochs = 70
 
-d_learning_rate = 3e-3
-g_learning_rate = 8e-3
+d_learning_rate = 3e-2
+g_learning_rate = 8e-2
 
 
 def get_real_sampler(start, end, step, func=np.sin):
@@ -38,7 +38,7 @@ def rand_data():
     start = np.random.uniform(0, 2000)
     end = start + 6284
     a = get_real_sampler(start, end, 1 / 1000)
-    return a[0], a[1], a[2], start, end
+    return a[1], {"times": a[0], "length": a[2], "start": start, "end": end}
 
 
 def get_noise_sampler():
@@ -49,33 +49,24 @@ def get_noise_sampler():
 
 noise_data = get_noise_sampler()
 
-# if True:
-#     actual_data = rand_data()
-#     print(actual_data[2], np.argmax(actual_data[1]))
-#     plt.plot(actual_data[0], actual_data[1])
-#     plt.show()
-
 
 class Generator(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size):
+    def __init__(
+        self, input_size, hidden_size, output_size, final_seq_func, final_func
+    ):
         super(Generator, self).__init__()
         self.map1 = nn.Linear(input_size, hidden_size)
         self.map2 = nn.Sequential(
             nn.Linear(hidden_size, hidden_size),
-            torch.nn.SELU(),
             nn.Linear(hidden_size, hidden_size),
-            torch.nn.ReLU(),
             nn.Linear(hidden_size, hidden_size),
-            torch.nn.SELU(),
             nn.Linear(hidden_size, hidden_size),
-            torch.nn.ELU(),
             nn.Linear(hidden_size, hidden_size),
-            torch.nn.SELU(),
             nn.Linear(hidden_size, hidden_size),
-            torch.nn.LeakyReLU(),
+            final_seq_func,
         )
         self.map3 = nn.Linear(hidden_size, output_size)
-        self.xfer = torch.nn.SELU()
+        self.xfer = final_func
 
     def forward(self, x):
         x = self.xfer(self.map1(x))
@@ -88,24 +79,26 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         self.seq = nn.Sequential(
             nn.Linear(input_size, hidden_size),
-            nn.ReLU(),
             nn.Linear(hidden_size, hidden_size),
-            nn.ReLU(),
             nn.Linear(hidden_size, hidden_size),
-            nn.ReLU(),
             nn.Linear(hidden_size, hidden_size),
-            nn.ReLU(),
             nn.Linear(hidden_size, hidden_size),
-            nn.ReLU(),
             nn.Linear(hidden_size, output_size),
+            nn.GELU(),
         )
 
     def forward(self, x):
         return torch.sigmoid(self.seq(x))
 
 
+fs = nn.Tanh()
+ff = nn.Tanh()
 G = Generator(
-    input_size=g_input_size, hidden_size=g_hidden_size, output_size=Series_Length
+    input_size=g_input_size,
+    hidden_size=g_hidden_size,
+    output_size=Series_Length,
+    final_func=ff,
+    final_seq_func=fs,
 )
 D = Discriminator(
     input_size=Series_Length, hidden_size=d_hidden_size, output_size=d_output_size
@@ -117,10 +110,10 @@ g_optimizer = optim.SGD(G.parameters(), lr=g_learning_rate)
 
 
 def train_D_on_actual():
-    t = torch.empty(15, 1)
+    t = torch.empty(1, 1)
     for i in range(d_minibatch_size):
-        real_data = rand_data()
-        real_decision = D(torch.tensor(real_data[1], dtype=torch.float))
+        real_data, attrs = rand_data()
+        real_decision = D(torch.tensor(real_data, dtype=torch.float))
         t[i] = real_decision
     # print(t, torch.ones(d_minibatch_size, 1), sep="\n")
     real_error = criterion(t, torch.ones(d_minibatch_size, 1))  # ones = true
@@ -146,6 +139,9 @@ def train_G():
     return error.item(), fake_data
 
 
+##
+#!training ⏬⏬
+##
 losses = []
 for epoch in range(num_epochs):
     D.zero_grad()
@@ -164,23 +160,15 @@ for epoch in range(num_epochs):
 print("Training complete")
 
 
-def draw(data):
-    plt.figure()
-    d = data.tolist() if isinstance(data, torch.Tensor) else data
-    plt.plot(d)
-    plt.show()
-
-
 # d = torch.empty(generated.size(0), 53)
 # for i in range(0, d.size(0)):
 #     d[i] = torch.histc(generated[i], min=0, max=5, bins=53)
 # draw(d.t())
 
-rdat = rand_data()
-
-a = G(torch.tensor([rdat[3], rdat[4], 1 / 1000]))
-x = rdat[0]
-y = rdat[1]
+rdat, attrs = rand_data()
+a = G(torch.tensor([attrs["start"], attrs["end"], 1 / 1000]))
+y = rdat
+x = attrs["times"]
 plt.plot(x, a.detach().numpy())
 plt.plot(x, y)
 plt.show()
