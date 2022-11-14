@@ -8,6 +8,7 @@ import torch.optim as optim
 import torch.utils.data
 import torchvision
 import datetime
+import numpy as np
 
 from btp_dataset import BtpDataset
 from utils import time_series_to_plot
@@ -30,7 +31,7 @@ def generate_arguments():
         "--nz", type=int, default=100, help="dimensionality of the latent vector z"
     )
     parser.add_argument(
-        "--epochs", type=int, default=50, help="number of epochs to train for"
+        "--epochs", type=int, default=1, help="number of epochs to train for"
     )
     parser.add_argument(
         "--lr", type=float, default=0.0002, help="learning rate, default=0.0002"
@@ -83,6 +84,12 @@ def generate_arguments():
         default="lstm",
         choices=["cnn", "lstm"],
         help="architecture to be used for generator to use",
+    )
+    parser.add_argument(
+        "--print_arch",
+        default=False,
+        choices=["True", "False"],
+        help="prints architectures to stdout",
     )
     return parser.parse_args()
 
@@ -138,7 +145,7 @@ def load_dataloader():
         )
         dataloader = DataLoader(
             c,
-            batch_size=1,
+            batch_size=64,
             sampler=CoReSampler(c.indexes, len(c)),
             collate_fn=c.collate_fn,
         )
@@ -148,21 +155,20 @@ def load_dataloader():
 
 
 dataset, dataloader = load_dataloader()
-
-device = torch.device("cuda:0" if opt.cuda else "cpu")
-nz = int(opt.nz)
-# Retrieve the sequence length as first dimension of a sequence in the dataset
 # print(next(iter(dataloader)))
-# An additional input is needed for the delta
-in_dim = opt.nz
+device = torch.device("cuda:0" if opt.cuda else "cpu")
+
+in_dim = 1
 
 if opt.dis_type == "lstm":
     netD = LSTMDiscriminator(in_dim=1, hidden_dim=256).to(device)
+if opt.gen_type == "lstm":
     netG = LSTMGenerator(in_dim=in_dim, out_dim=1, hidden_dim=256).to(device)
 if opt.dis_type == "cnn":
     netD = CausalConvDiscriminator(
         input_size=1, n_layers=8, n_channel=10, kernel_size=8, dropout=0
     ).to(device)
+if opt.gen_type == "cnn":
     netG = CausalConvGenerator(
         noise_size=in_dim,
         output_size=1,
@@ -175,19 +181,15 @@ if opt.dis_type == "cnn":
 assert netG
 assert netD
 
-if opt.netG != "":
-    netG.load_state_dict(torch.load(opt.netG))
-if opt.netD != "":
-    netD.load_state_dict(torch.load(opt.netD))
-
-print("|Discriminator Architecture|\n", netD)
-print("|Generator Architecture|\n", netG)
+if opt.print_arch:
+    print("|Discriminator Architecture|\n", netD)
+    print("|Generator Architecture|\n", netG)
 
 criterion = nn.BCELoss().to(device)
 delta_criterion = nn.MSELoss().to(device)
 
 # Generate fixed noise to be used for visualization
-def noise_generation_for_generator(numiter=1):
+def noise_in(numiter=1):
     rtensor = []
     for i in range(numiter):
         m1 = random.randrange(100, 20000) / 10000
@@ -216,14 +218,10 @@ def noise_generation_for_generator(numiter=1):
         )
         current_tensor = [m1, m2, eos]
         rtensor.append(current_tensor)
-    return rtensor
+    return torch.tensor(rtensor)
 
 
-def noisegen():
-    return torch.tensor(noise_generation_for_generator(numiter=opt.batchSize))
-
-
-fixed_noise = noisegen()
+fixed_noise = noise_in()
 
 real_label = 1
 fake_label = 0
@@ -232,31 +230,33 @@ fake_label = 0
 optimizerD = optim.Adam(netD.parameters(), lr=opt.lr)
 optimizerG = optim.Adam(netG.parameters(), lr=opt.lr)
 
+
 for epoch in range(opt.epochs):
     for i, data in enumerate(dataloader, 0):
-        niter = epoch * len(dataloader) + i
-        print(niter,"a;sldkfj")
-print("atend")
-exit()
-#     # Save just first batch of real data for displaying
-#     if i == 0:
-#         real_display = data.cpu()
-
-#     ############################
-#     # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
-#     ###########################
-
-#     # Train with real data
-#     netD.zero_grad()  #! zeroes all gradients and prepares the discriminator for training
-#     real = data.to(device)
-#     batch_size, seq_len = real.size(0), real.size(1)
-#     label = torch.full((batch_size, seq_len, 1), real_label, device=device)
-
-#     output = netD(real)
-#     errD_real = criterion(output, label)
-#     errD_real.backward()
-#     D_x = output.mean().item()
-
+        # gwf = data[0]
+        # params = data[1]
+        # print(data)
+        shapera = np.empty((len(data), 2),dtype = object)
+        print(shapera)
+        for i in data:
+            np.stack((shapera,np.array(i)),axis = -1)
+        print(shapera)
+        # niter = epoch * len(dataloader) + i
+        # # Save just first batch of real data for displaying
+        # if i == 0:
+        #     real_display = torch.tensor(gwf).cpu()
+        # print(niter)
+        # # Train with real data
+        # netD.zero_grad()  #! zeroes all gradients and prepares the discriminator for training
+        # real = gwf.to(device)
+        # output = netD(real[:, 1])
+        # print(output)
+        break
+    break
+    # errD_real = criterion(output, params)
+    # errD_real.backward()
+    # D_x = output.mean().item()
+#
 #     # Train with fake data
 #     noise = noisegen()
 #     fake = netG(noise)
