@@ -40,7 +40,7 @@ class CoReDataSet(Dataset):
         rh_xx: str = "rh_22",
         maxlen=40817,
         attrs: Union[List[str], str] = "*",
-        gw_preprocess_func=True,
+        gw_preprocess_func=None,
     ):
         self.local_path = p.Path(local_path)
         if not self.local_path.exists():
@@ -53,7 +53,7 @@ class CoReDataSet(Dataset):
         self.rh_xx = rh_xx
         self.attrs = attrs
         self.maxlen = maxlen
-        if gw_preprocess_func == True:
+        if gw_preprocess_func == None:
             self.gw_preprocessor = lambda x: pad_tensor(
                 torch.from_numpy(x), (0, 0, 0, self.maxlen - x.shape[0]), "constant", 0
             )
@@ -115,10 +115,17 @@ class CoReSampler(Sampler):
             yield self.indexes[i]
 
 
-c = CoReDataSet(attrs=["id_eos", "id_mass_starA", "id_mass_starB", "database_key"])
+c = CoReDataSet(
+    attrs=[
+        "id_eos",
+        "id_mass_starA",
+        "id_mass_starB",
+    ]
+)
 dataloader = DataLoader(
     c, batch_size=1, sampler=CoReSampler(c.indexes, len(c)), collate_fn=c.collate_fn
 )
 
 if __name__ == "__main__":
-    print(next(iter(dataloader))[0][0].shape)
+    nited = next(iter(dataloader))
+    print(nited[0][0].shape, nited[0][1])
