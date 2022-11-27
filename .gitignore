@@ -6,3 +6,5 @@ clean_last_experiment.py
 checkpoints/
 images/
 old/
+ready/CoRe_DB_clone/*
+ready/CoRe_DB_clone
