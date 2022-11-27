@@ -52,24 +52,24 @@ noise_data = get_noise_sampler()
 
 class Generator(nn.Module):
     def __init__(
-        self, input_size, hidden_size, output_size, final_seq_func, final_func
+        self,
+        input_size,
+        hidden_size,
+        output_size,
     ):
         super(Generator, self).__init__()
-        self.map1 = nn.Linear(input_size, hidden_size)
-        self.map2 = nn.Sequential(
+        self.map1 = nn.Sequential(
+            nn.Linear(input_size, 100),
             nn.Linear(100, 500),
             nn.Linear(500, 1000),
             nn.Linear(1000, 2000),
-            nn.Linear(2000, hidden_size),
-            nn.Linear(hidden_size, 5000),
-            final_seq_func,
+            nn.Linear(2000, 5000),
+            nn.Linear(5000, output_size),
+            nn.Tanh(),
         )
-        self.map3 = nn.Linear(hidden_size, output_size)
-        self.xfer = final_func
 
     def forward(self, x):
-        x = self.xfer(self.map2(self.map1(x)))
-        return self.xfer(self.map3(x))
+        return self.map1(x)
 
 
 class Discriminator(nn.Module):
@@ -89,14 +89,10 @@ class Discriminator(nn.Module):
         return torch.sigmoid(self.seq(x))
 
 
-fs = nn.Tanh()
-ff = nn.SELU()
 G = Generator(
     input_size=g_input_size,
     hidden_size=g_hidden_size,
     output_size=Series_Length,
-    final_func=ff,
-    final_seq_func=fs,
 )
 D = Discriminator(
     input_size=Series_Length, hidden_size=d_hidden_size, output_size=d_output_size
