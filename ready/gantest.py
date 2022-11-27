@@ -57,20 +57,18 @@ class Generator(nn.Module):
         super(Generator, self).__init__()
         self.map1 = nn.Linear(input_size, hidden_size)
         self.map2 = nn.Sequential(
-            nn.Linear(hidden_size, hidden_size),
-            nn.Linear(hidden_size, hidden_size),
-            nn.Linear(hidden_size, hidden_size),
-            nn.Linear(hidden_size, hidden_size),
-            nn.Linear(hidden_size, hidden_size),
-            nn.Linear(hidden_size, hidden_size),
+            nn.Linear(100, 500),
+            nn.Linear(500, 1000),
+            nn.Linear(1000, 2000),
+            nn.Linear(2000, hidden_size),
+            nn.Linear(hidden_size, 5000),
             final_seq_func,
         )
         self.map3 = nn.Linear(hidden_size, output_size)
         self.xfer = final_func
 
     def forward(self, x):
-        x = self.xfer(self.map1(x))
-        x = self.xfer(self.map2(x))
+        x = self.xfer(self.map2(self.map1(x)))
         return self.xfer(self.map3(x))
 
 
@@ -92,7 +90,7 @@ class Discriminator(nn.Module):
 
 
 fs = nn.Tanh()
-ff = nn.Tanh()
+ff = nn.SELU()
 G = Generator(
     input_size=g_input_size,
     hidden_size=g_hidden_size,
@@ -105,8 +103,8 @@ D = Discriminator(
 )
 
 criterion = nn.BCELoss()
-d_optimizer = optim.SGD(D.parameters(), lr=d_learning_rate)
-g_optimizer = optim.SGD(G.parameters(), lr=g_learning_rate)
+d_optimizer = optim.ASGD(D.parameters(), lr=d_learning_rate)
+g_optimizer = optim.ASGD(G.parameters(), lr=g_learning_rate)
 
 
 def train_D_on_actual():
