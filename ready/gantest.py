@@ -1,53 +1,39 @@
 import torch
-import random
 import torch.nn as nn
 import torch.optim as optim
-from torch.distributions.normal import Normal
 import numpy as np
 import matplotlib.pyplot as plt
 
-Series_Length = 6284
 
-g_input_size = 3
-g_hidden_size = 2500
-g_output_size = Series_Length
-
-d_input_size = Series_Length
-d_hidden_size = 2500
-d_output_size = 1
-
-d_minibatch_size = 1
-g_minibatch_size = 1
-num_epochs = 70
-
-d_learning_rate = 3e-2
-g_learning_rate = 8e-2
+d_learning_rate = 3e-1
+g_learning_rate = 8e-1
+num_epochs = 500
 
 
-def get_real_sampler(start, end, step, func=np.sin):
-    x = np.linspace(start * step, end * step, Series_Length)
-    y = func(x)
-    # print(f"{start, start + Series_Length,len(x),len(y)}")
-    # assert len(x) == len(y)
-    # assert len(x) == Series_Length
-    # assert len(y) == Series_Length
-    return x, y, len(y)
+def random_data(return_params=False):
+    start = int(np.random.uniform(0, 180))
+    # print(start)
+    y = np.linspace(0, 330, 12)
+    # print(y)
+    y += start
+    # (y)
+    if return_params:
+        return y[0], y[-1], np.sin(np.radians(y))
+    return np.sin(np.radians(y))
 
 
-def rand_data():
-    start = np.random.uniform(0, 2000)
-    end = start + 6284
-    a = get_real_sampler(start, end, 1 / 1000)
-    return a[1], {"times": a[0], "length": a[2], "start": start, "end": end}
+random_data_generation_works = random_data()
+# plt.scatter(list(range(0, 12)), random_data_generation_works, marker="o")
+# plt.show()
 
 
-def get_noise_sampler():
-    return lambda m, n: torch.rand(
-        m, n
-    ).requires_grad_()  # Uniform-dist data into generator, _NOT_ Gaussian
+def get_random_noise():
+    start = int(np.random.uniform(0, 90))
+    end = start + 330
+    return torch.tensor([start, end], dtype=torch.float)
 
 
-noise_data = get_noise_sampler()
+# print(get_random_noise())
 
 
 class Generator(nn.Module):
@@ -59,12 +45,13 @@ class Generator(nn.Module):
     ):
         super(Generator, self).__init__()
         self.map1 = nn.Sequential(
-            nn.Linear(input_size, 100),
-            nn.Linear(100, 500),
-            nn.Linear(500, 1000),
-            nn.Linear(1000, 2000),
-            nn.Linear(2000, 5000),
-            nn.Linear(5000, output_size),
+            nn.Linear(input_size, 1000),
+            nn.Tanh(),
+            nn.Linear(1000, 10000),
+            nn.Tanh(),
+            nn.Linear(10000, 50000),
+            nn.Tanh(),
+            nn.Linear(50000, output_size),
             nn.Tanh(),
         )
 
@@ -77,10 +64,9 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         self.seq = nn.Sequential(
             nn.Linear(input_size, hidden_size),
+            nn.GELU(),
             nn.Linear(hidden_size, hidden_size),
-            nn.Linear(hidden_size, hidden_size),
-            nn.Linear(hidden_size, hidden_size),
-            nn.Linear(hidden_size, hidden_size),
+            nn.GELU(),
             nn.Linear(hidden_size, output_size),
             nn.GELU(),
         )
@@ -90,48 +76,15 @@ class Discriminator(nn.Module):
 
 
 G = Generator(
-    input_size=g_input_size,
-    hidden_size=g_hidden_size,
-    output_size=Series_Length,
+    input_size=2,
+    hidden_size=128,
+    output_size=12,
 )
-D = Discriminator(
-    input_size=Series_Length, hidden_size=d_hidden_size, output_size=d_output_size
-)
+D = Discriminator(input_size=12, hidden_size=128 * 3, output_size=1)
 
-criterion = nn.BCELoss()
+criterion = nn.BCEWithLogitsLoss()
 d_optimizer = optim.ASGD(D.parameters(), lr=d_learning_rate)
 g_optimizer = optim.ASGD(G.parameters(), lr=g_learning_rate)
-
-
-def train_D_on_actual():
-    t = torch.empty(1, 1)
-    for i in range(d_minibatch_size):
-        real_data, attrs = rand_data()
-        real_decision = D(torch.tensor(real_data, dtype=torch.float))
-        t[i] = real_decision
-    # print(t, torch.ones(d_minibatch_size, 1), sep="\n")
-    real_error = criterion(t, torch.ones(d_minibatch_size, 1))  # ones = true
-    real_error.backward()
-
-
-def train_D_on_generated():
-    noise = noise_data(d_minibatch_size, g_input_size)
-    fake_data = G(noise)
-    fake_decision = D(fake_data)
-    fake_error = criterion(
-        fake_decision, torch.zeros(d_minibatch_size, 1)
-    )  # zeros = fake
-    fake_error.backward()
-
-
-def train_G():
-    noise = noise_data(g_minibatch_size, g_input_size)
-    fake_data = G(noise)
-    fake_decision = D(fake_data)
-    error = criterion(fake_decision, torch.ones(g_minibatch_size, 1))
-    error.backward()
-    return error.item(), fake_data
-
 
 ##
 #!training ⏬⏬
@@ -139,18 +92,38 @@ def train_G():
 losses = []
 for epoch in range(num_epochs):
     D.zero_grad()
-
-    train_D_on_actual()
-    train_D_on_generated()
+    #! train Discriminator on actual data
+    real_data = random_data()
+    t = D(torch.tensor(real_data, dtype=torch.float))
+    real_error = criterion(t, torch.tensor([1.0], dtype=torch.float))  # ones = true
+    real_error.backward()
+    # print(f"{real_data = } | (What the discriminator gave) {t = } | {real_error = }")
+    #! train discriminator on fake data
+    noise = get_random_noise()
+    fake_data = G(noise)
+    fake_decision = D(fake_data)
+    fake_error = criterion(
+        fake_decision, torch.tensor([0.0], dtype=torch.float)
+    )  # zeros = fake
+    fake_error.backward()
+    # print(f"{noise = } | {fake_data = } | {fake_decision = } | {fake_error = }")
+    #! run the discriminator optimizer
     d_optimizer.step()
-
+    #! train the generator
     G.zero_grad()
-    loss, generated = train_G()
+    noise = get_random_noise()
+    fake_data = G(noise)
+    fake_decision = D(fake_data)
+    error = criterion(fake_decision, torch.tensor([1.0], dtype=torch.float))
+    error.backward()
+    # print(f"{noise = } | {fake_data = } | {fake_decision = } | {error = }")
+    #! optimize generator
     g_optimizer.step()
-
+    #! print metrics
+    loss = error.item()
     losses.append(loss)
-    print("Epoch %6d. Loss %5.3f" % (epoch + 1, loss))
-    # plt.plot(G(torch.tensor([0, 2 * np.pi, 1 / 1000])).detach().numpy())
+    print("Epoch %6d. Loss %5.3f \n\n" % (epoch + 1, loss))
+
 print("Training complete")
 
 
@@ -159,10 +132,11 @@ print("Training complete")
 #     d[i] = torch.histc(generated[i], min=0, max=5, bins=53)
 # draw(d.t())
 
-rdat, attrs = rand_data()
-a = G(torch.tensor([attrs["start"], attrs["end"], 1 / 1000]))
-y = rdat
-x = attrs["times"]
-plt.plot(x, a.detach().numpy())
-plt.plot(x, y)
+start, end, ydat = random_data(True)
+a = G(torch.tensor([start, end], dtype=torch.float))
+x = np.linspace(0, 330, 12) + start
+plt.plot(list(range(0, 12)), a.detach().numpy())
+plt.scatter(list(range(0, 12)), ydat)
 plt.show()
+print("actual: ", ydat)
+print("generated: ", a.detach().numpy())
