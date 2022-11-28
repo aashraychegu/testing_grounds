@@ -1,8 +1,6 @@
 import torch
-import random
 import torch.nn as nn
 import torch.optim as optim
-from torch.distributions.normal import Normal
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -18,7 +16,7 @@ d_output_size = 1
 
 d_minibatch_size = 1
 g_minibatch_size = 1
-num_epochs = 70
+num_epochs = 20
 
 d_learning_rate = 3e-2
 g_learning_rate = 8e-2
@@ -59,17 +57,17 @@ class Generator(nn.Module):
     ):
         super(Generator, self).__init__()
         self.map1 = nn.Sequential(
-            nn.Linear(input_size, 100),
-            nn.Linear(100, 500),
-            nn.Linear(500, 1000),
-            nn.Linear(1000, 2000),
-            nn.Linear(2000, 5000),
-            nn.Linear(5000, output_size),
+            nn.Linear(input_size, hidden_size),
+            nn.Tanh(),
+            nn.Linear(hidden_size, hidden_size),
+            nn.Tanh(),
+            nn.Linear(hidden_size, output_size),
             nn.Tanh(),
         )
 
     def forward(self, x):
-        return self.map1(x)
+        # return self.map1(x)
+        get_real_sampler(x[0], x[1], [])
 
 
 class Discriminator(nn.Module):
@@ -77,10 +75,15 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         self.seq = nn.Sequential(
             nn.Linear(input_size, hidden_size),
+            nn.GELU(),
             nn.Linear(hidden_size, hidden_size),
+            nn.GELU(),
             nn.Linear(hidden_size, hidden_size),
+            nn.GELU(),
             nn.Linear(hidden_size, hidden_size),
+            nn.GELU(),
             nn.Linear(hidden_size, hidden_size),
+            nn.GELU(),
             nn.Linear(hidden_size, output_size),
             nn.GELU(),
         )
@@ -99,8 +102,8 @@ D = Discriminator(
 )
 
 criterion = nn.BCELoss()
-d_optimizer = optim.ASGD(D.parameters(), lr=d_learning_rate)
-g_optimizer = optim.ASGD(G.parameters(), lr=g_learning_rate)
+d_optimizer = optim.SGD(D.parameters(), lr=d_learning_rate)
+g_optimizer = optim.SGD(G.parameters(), lr=g_learning_rate)
 
 
 def train_D_on_actual():
