@@ -68,9 +68,8 @@ class Discriminator(nn.Module):
             nn.Linear(256, 1),
         )
 
-    def forward(self, img):
-        # img_flat = img.view(img.shape[0], -1)
-        validity = self.model(img_flat)
+    def forward(self, inp):
+        validity = self.model(inp)
         return validity
 
 
