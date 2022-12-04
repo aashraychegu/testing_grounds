@@ -38,8 +38,9 @@ def plot_sg(data):
     import matplotlib.pyplot as plt
 
     plt.switch_backend(dfbackend)
-    plt.pcolormesh(data, hatch="/", cmap="plasma")
+    fig = plt.pcolormesh(data, hatch="/", cmap="plasma")
     plt.xlim(0, data.shape[0])
+    return fig
 
 
 class specGds(Dataset):

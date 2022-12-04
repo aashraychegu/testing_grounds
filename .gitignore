@@ -8,3 +8,6 @@ images/
 old/
 ready/CoRe_DB_clone/*
 ready/CoRe_DB_clone
+*.png
+/imgs_*
+*/imgs
