@@ -47,8 +47,8 @@ class CoReDataSet(Dataset):
             self.local_path.mkdir(exist_ok=False)
         with HiddenPrints():
             from watpy.coredb.coredb import CoRe_db
-
             self.sim = CoRe_db(local_path).sim
+            
         self.indexes = {}
         self.rh_xx = rh_xx
         self.attrs = attrs
@@ -128,4 +128,4 @@ dataloader = DataLoader(
 
 if __name__ == "__main__":
     nited = next(iter(dataloader))
-    print(nited[0][0].shape, nited[0][1])
+    print(nited[0][0], nited[0][1])
