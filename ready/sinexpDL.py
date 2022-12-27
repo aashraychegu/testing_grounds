@@ -1,73 +1,78 @@
-import torch
-from torch.utils.data import Dataset, DataLoader
 import numpy as np
-import matplotlib as mp
+from torch.utils.data import Dataset, DataLoader
+from torch import tensor, float as tfloat
 import matplotlib.pyplot as plt
-import seaborn as sns
-from random import randint
+from scipy.signal import spectrogram as sg
 
-dfbackend = mp.get_backend()
-
-
-def rand_data(expxmod=1.0, sinxmod=1.0, len_in_pis=3, return_values=False):
-    start = int(np.random.uniform(0, 200))
-    end = start + int(np.pi * 1000 * len_in_pis)
-    x = np.arange(start, end) / 1000
-    y = np.sin(np.exp(x * expxmod) * sinxmod)
-    if return_values:
-        return y, start, end
-    return y
+pi3 = round(2 * np.pi, 3)
 
 
-def return_sg(
-    expxmod=1,
-    sinxmod=1,
-    length=3.0,
-    switch="agg",
-):
-    data = rand_data(expxmod, len_in_pis=length)
-    plt.switch_backend(switch) if switch != None else print("using a normal backend")
-    powerSpectrum, _, _, _ = plt.specgram(
-        data, NFFT=128 * 2, noverlap=111, pad_to=64 * 2 - 1
-    )
+class ExS:
+    def __init__(
+        self,
+        start=0,
+        end=pi3,
+        length=None,
+    ) -> None:
+        self.start = start
+        self.end = end
+        self.length = end * 1000 if length is None else length
 
-    return powerSpectrum
+    def genExS(self, start, end, numsamples, preexpfac, freqfactor):
+        x = np.linspace(start, end, int(numsamples))
+        f = np.sin(freqfactor * np.exp(preexpfac * x))
+        return f
 
+    def wf_to_sg(self, ra):
+        _, _, Sxx = sg(ra, 10e4, nfft=128 * 4, nperseg=38, noverlap=15)
+        return Sxx[:256:4, :256:4]
 
-def plot_sg(data):
-    import matplotlib.pyplot as plt
-
-    plt.switch_backend(dfbackend)
-    fig = plt.pcolormesh(data, hatch="/", cmap="plasma")
-    plt.xlim(0, data.shape[0])
-    return fig
+    def gen_SG(self, start=None, end=None, length=None, preexpfac=1, freqfactor=1):
+        start = self.start if start is None else start
+        end = self.end if end is None else end
+        length = end * 1000 if length is None else length
+        return self.wf_to_sg(self.genExS(start, end, length, preexpfac, freqfactor))
 
 
 class specGds(Dataset):
-    def __init__(self, num_samples: int, scale_factor: float, start: int, numpis=3):
-        self.slist = np.arange(1, num_samples + 1, 1, dtype=np.float64)
-        self.slist *= scale_factor
-        self.slist = self.slist + start
-        self.numpis = numpis
+    def __init__(
+        self,
+        device,
+        start,
+        end,
+        scaleFactor=1 / 1000,
+        genStart=0,
+        genEnd=pi3,
+        genLength=None,
+    ):
+        self.device = device
+        self.pspace = np.linspace(start, end, int((end - start) / scaleFactor))
+        self.gen = ExS(genStart, genEnd, genLength)
         print(self.__str__())
 
     def __len__(self):
-        return len(self.slist)
+        return len(self.pspace)
 
     def __getitem__(self, index):
-        # np.random.seed(index)
-        return torch.tensor(
-            return_sg(
-                expxmod=self.slist[index],
-                sinxmod=randint(0, 1000) / 20,
-                length=self.numpis,
-            ),
-            dtype=torch.float,
-        ).view((1, 64, 64))
+        a = tensor(
+            self.gen.gen_SG(freqfactor=self.pspace[index]), device=self.device
+        ).float()
+        return a.view((1, 64, 64))
 
     def plotitem(self, index):
-        plot_sg(self.__getitem__(index)[0])
+        plt.pcolormesh(self.__getitem__(index)[0])
         plt.show()
 
     def __str__(self) -> str:
-        return f"{self.slist.shape = } | {self.numpis = } | {self.__len__() = }"
+        return f"{self.pspace.shape = } | {self.__len__() = }"
+
+
+if __name__ == "__main__":
+    ds = specGds(
+        "cuda:0",
+        1,
+        2,
+    )
+    s = DataLoader(ds, batch_size=1)
+    a = next(iter(s))
+    print(a[0][0].shape)
