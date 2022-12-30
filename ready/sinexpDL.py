@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from torch.utils.data import Dataset, DataLoader
 from torch import tensor, float as tfloat
 import matplotlib.pyplot as plt
@@ -18,7 +19,7 @@ class ExS:
         self.end = end
         self.length = end * 1000 if length is None else length
 
-    def genExS(self, start, end, numsamples, preexpfac, freqfactor):
+    def genExS(self, start, end, numsamples, preexpfac=2, freqfactor=1):
         x = np.linspace(start, end, int(numsamples))
         f = np.sin(freqfactor * np.exp(preexpfac * x))
         return f
@@ -70,9 +71,21 @@ class specGds(Dataset):
 if __name__ == "__main__":
     ds = specGds(
         "cuda:0",
-        1,
-        2,
+        6,
+        7,
     )
-    s = DataLoader(ds, batch_size=1)
+    s = DataLoader(ds, batch_size=1000)
     a = next(iter(s))
-    print(a[0][0].shape)
+    A = a[999][0]
+    AA = A.clone()
+    AA = AA.view(A.size(0), -1)
+    AA -= AA.min(1, keepdim=True)[0]
+    AA /= AA.max(1, keepdim=True)[0]
+    AA = AA.view(A.size(0), A.size(1))
+
+    np.set_printoptions(threshold=np.inf)
+
+    print(torch.round(AA, decimals=3).cpu().numpy())
+    # print(torch.round(, decimals=3).cpu().numpy())
+    plt.pcolormesh(AA.cpu())
+    plt.show()
