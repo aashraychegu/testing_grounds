@@ -67,3 +67,4 @@ class specGds(Dataset):
 
 dataset = specGds(1, 6, num_samples=3200)
 dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
+print(dataset[1].shape)
