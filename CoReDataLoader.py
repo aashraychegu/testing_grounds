@@ -81,15 +81,15 @@ class CoRe_DB_Dataset(Dataset):
         return h5.File(h5path, "r")[psl[2]][psl[3]][:, 0:2], metadata
 
     def preprocess(self, data):
-        return self.preprocess_ts(data[0]).to(device), self.preprocess_params(
+        return self.preprocess_ts(data[0]).to(self.device), self.preprocess_params(
             data[1]
-        ).to(device)
+        ).to(self.device)
 
     def preprocess_ts(self, ts):
         ts = ts[1]
         return torch.tensor(
             np.pad(ts, (0, maxlen - len(ts)), "constant", constant_values=0)
-        )
+        ).to(torch.float32)
 
     def preprocess_params(self, params):
         params = rekey(
@@ -101,9 +101,9 @@ class CoRe_DB_Dataset(Dataset):
             },
         )
         params["eos"] = self.eosmap[params["eos"]]
-        params["ma1"] = float(params["m1s"])
-        params["ma2"] = float(params["m2s"])
-        return torch.tensor(params.items())
+        params["m1s"] = float(params["m1s"])
+        params["m2s"] = float(params["m2s"])
+        return torch.tensor(list(params.values())).to(torch.float32)
 
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
