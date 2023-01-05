@@ -41,13 +41,13 @@ class CoRe_DB_Dataset(Dataset):
         self.pspace = []
         self.eoss = []
         self.device = device
-        with HiddenPrints():
-            if not self.path.exists():
-                self.path.mkdir(exist_ok=False)
-            cdb = CoRe_db(self.path)
-            if sync:
-                cdb.sync(verbose=False, lfs=True)
-            self.sims = cdb.sim
+        # with HiddenPrints():
+        if not self.path.exists():
+            self.path.mkdir(exist_ok=False)
+        cdb = CoRe_db(self.path)
+        if sync:
+            cdb.sync(verbose=False, lfs=True)
+        self.sims = cdb.sim
         for sim_key in self.sims:
             sim = self.sims[sim_key]
             for run_key in sim.run:
@@ -107,7 +107,7 @@ class CoRe_DB_Dataset(Dataset):
 
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-dataset = CoRe_DB_Dataset(sync=False, device=device)
+dataset = CoRe_DB_Dataset(sync=True, device=device)
 dataloader = DataLoader(
     dataset,
     batch_size=16,
