@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from torch.nn.functional import pad as pad_tensor
 
-maxlen = 40817
+maxlen = 4678
 
 
 def rekey(inp_dict, keys_replace):
@@ -52,14 +52,20 @@ class CoRe_DB_Dataset(Dataset):
             sim = self.sims[sim_key]
             for run_key in sim.run:
                 run = sim.run[run_key]
-                current_h5_filepath = p.Path(self.sims[sim_key].run[run_key].data.path)
+                current_h5_filepath = p.Path(
+                    self.sims[sim_key].run[run_key].data.path)
                 self.eoss.append(run.md.data["id_eos"])
                 current_h5_file = h5.File(current_h5_filepath / "data.h5", "r")
                 current_rh_waveforms = [
                     i for i in current_h5_file.keys() if i == "rh_22"
                 ]
                 for selected_wf in current_rh_waveforms:
-                    extraction_radii = list(current_h5_file[selected_wf].keys())
+                    extraction_radii = list(
+                        current_h5_file[selected_wf].keys())
+                    tdata = current_h5_file[selected_wf][extraction_radii[0]][:, 1]
+                    tdl = tdata[np.argmax(tdata):].shape[0]
+                    if tdl < 500:
+                        continue
                     for extraction_radius in extraction_radii:
                         self.pspace.append(
                             (sim_key, run_key, selected_wf, extraction_radius)
@@ -78,7 +84,10 @@ class CoRe_DB_Dataset(Dataset):
         data = self.sims[psl[0]].run[psl[1]]
         h5path = p.Path(data.data.path) / "data.h5"
         metadata = {i: data.md.data[i] for i in self.sel_attr}
-        return h5.File(h5path, "r")[psl[2]][psl[3]][:, 0:2], metadata
+        data = h5.File(h5path, "r")[psl[2]][psl[3]][:, 1]
+        data = data[np.argmax(data):: 4]
+        data = data / np.linalg.norm(data)
+        return data, metadata
 
     def preprocess(self, data):
         return self.preprocess_ts(data[0]).to(self.device), self.preprocess_params(
@@ -86,7 +95,6 @@ class CoRe_DB_Dataset(Dataset):
         ).to(self.device)
 
     def preprocess_ts(self, ts):
-        ts = ts[1]
         return torch.tensor(
             np.pad(ts, (0, maxlen - len(ts)), "constant", constant_values=0)
         ).to(torch.float32)
@@ -110,7 +118,13 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 dataset = CoRe_DB_Dataset(sync=False, device=device)
 dataloader = DataLoader(
     dataset,
-    batch_size=16,
+    batch_size=8,
     shuffle=True,
 )
-# print(next(iter(dataloader)))
+if __name__ == "__main__":
+    lengths = []
+    for i in range(len(dataset)):
+        lengths.append(dataset[i][0].__len__())
+    glens = [length for length in lengths if length > 500]
+    glens = sorted(glens)
+    print(len(glens), max(glens))
