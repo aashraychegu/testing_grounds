@@ -9,6 +9,7 @@ import torch
 from torch.nn.functional import pad as pad_tensor
 
 maxlen = 4678
+padlen = 4678 + 2
 
 
 def rekey(inp_dict, keys_replace):
@@ -35,6 +36,7 @@ class CoRe_DB_Dataset(Dataset):
         device="cpu",
     ):
         self.sel_attr = sel_attr
+        self.output_length = padlen
         self.sync = sync
         self.pad = pad
         self.path = cdb_path
@@ -73,6 +75,7 @@ class CoRe_DB_Dataset(Dataset):
         self.pspace = tuple(self.pspace)
         self.eoss = list(sorted(set(self.eoss)))
         self.eosmap = {i: self.eoss.index(i) for i in self.eoss}
+        self.numeoss = len(self.eoss)
 
     def __len__(self):
         return len(self.pspace)
@@ -95,9 +98,10 @@ class CoRe_DB_Dataset(Dataset):
         ).to(self.device)
 
     def preprocess_ts(self, ts):
-        return torch.tensor(
-            np.pad(ts, (0, maxlen - len(ts)), "constant", constant_values=0)
-        ).to(torch.float32)
+        ts = np.pad(ts, (int((maxlen - len(ts))/2), int((maxlen - len(ts))/2)),
+                    "constant", constant_values=0)
+        ts = np.pad(ts, (0, padlen - len(ts)), "constant", constant_values=0)
+        return torch.tensor(ts).to(torch.float16)
 
     def preprocess_params(self, params):
         params = rekey(
@@ -118,13 +122,9 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 dataset = CoRe_DB_Dataset(sync=False, device=device)
 dataloader = DataLoader(
     dataset,
-    batch_size=8,
+    batch_size=16,
     shuffle=True,
+    num_workers=4
 )
 if __name__ == "__main__":
-    lengths = []
-    for i in range(len(dataset)):
-        lengths.append(dataset[i][0].__len__())
-    glens = [length for length in lengths if length > 500]
-    glens = sorted(glens)
-    print(len(glens), max(glens))
+    print(next(iter(dataloader)))
