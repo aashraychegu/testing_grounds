@@ -1,2 +1,11 @@
 CoRe_DB/*
 CoRe_DB
+wandb
+wandb/*
+toCSV
+__pycache__/
+__pycache__/*
+__pycache__
+pq
+saved_models
+saved_models/*
