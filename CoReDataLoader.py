@@ -88,7 +88,7 @@ class CoRe_DB_Dataset(Dataset):
         h5path = p.Path(data.data.path) / "data.h5"
         metadata = {i: data.md.data[i] for i in self.sel_attr}
         data = h5.File(h5path, "r")[psl[2]][psl[3]][:, 1]
-        data = data[np.argmax(data):: 4]
+        data = data[np.argmax(data)::4]
         data = data / np.linalg.norm(data)
         return data, metadata
 
@@ -127,4 +127,6 @@ dataloader = DataLoader(
     num_workers=4
 )
 if __name__ == "__main__":
-    print(next(iter(dataloader)))
+    import matplotlib.pyplot as plt
+    plt.plot(dataset[500][0].cpu().numpy())
+    plt.show()
