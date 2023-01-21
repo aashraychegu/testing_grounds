@@ -1,4 +1,4 @@
-from watpy.coredb.coredb import *
+from watpy.coredb.coredb import CoRe_db
 import pathlib
 
 pathlib.Path("./CoRe_DB").mkdir(exist_ok=True)
