@@ -127,6 +127,6 @@ dataloader = DataLoader(
     num_workers=4
 )
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt 
     plt.plot(dataset[500][0].cpu().numpy())
     plt.show()
