@@ -126,4 +126,6 @@ dataloader = DataLoader(
     shuffle=True,
 )
 if __name__ == "__main__":
-    print(next(iter(dataloader)))
+    import matplotlib.pyplot as plt
+    plt.plot(dataset[500][0].cpu())
+    plt.show()
