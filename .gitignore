@@ -1,0 +1,16 @@
+__pycache__/
+net*
+log/
+Dataset*
+clean_last_experiment.py
+checkpoints/
+images/
+old/
+CoRe_DB_clone/*
+CoRe_DB_clone
+saved_models
+wandb
+CoRe_DB
+CoRe_DB/
+CoRe_DB/*
+.ipynb_checkpoints/
