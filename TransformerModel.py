@@ -13,7 +13,7 @@ import math
 
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, d_model, dropout=0.1, max_len=5000):
+    def __init__(self, d_model, dropout=0.1, max_len=1500):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=0.1)
         pe = torch.zeros(max_len, d_model)
@@ -29,8 +29,7 @@ class PositionalEncoding(nn.Module):
 
     def forward(self, x):
         # x = x + self.pe[:x.size(1), :].squeeze(1)
-        x = x + self.pe[: x.size(0), :]
-        # return self.dropout(x)
+        x = x + self.pe[: x.size(0), :]  # type: ignore        
         return x
 
 
@@ -81,7 +80,7 @@ class TransformerModel(nn.Module):
         self.n_class = n_class
         self.n_conv_layers = n_conv_layers
         self.relu = torch.nn.ReLU()
-        self.pos_encoder = PositionalEncoding(748, dropout)
+        self.pos_encoder = PositionalEncoding(1168, dropout)
         self.self_att_pool = SelfAttentionPooling(d_model)
 
         encoder_layers = TransformerEncoderLayer(
@@ -101,18 +100,18 @@ class TransformerModel(nn.Module):
             nn.Dropout(dropout_other),
             nn.Linear(d_model, d_model),
             nn.Dropout(dropout_other),
-            nn.Linear(d_model, 1024),
+            nn.Linear(d_model, 512),
             torch.nn.Flatten(),
             torch.nn.ReLU(),
             torch.nn.Dropout(0.1),
-            nn.Linear(1024, 19)
+            nn.Linear(512, 19)
         )
         self.fc_out2 = torch.nn.Linear(1024, 1)
         self.conv1 = torch.nn.Conv1d(
-            in_channels=1, out_channels=128, kernel_size=3, stride=1, padding=0
+            in_channels=1, out_channels=32, kernel_size=3, stride=1, padding=0
         )
         self.conv2 = torch.nn.Conv1d(
-            in_channels=128, out_channels=d_model, kernel_size=3, stride=1, padding=1
+            in_channels=32, out_channels=d_model, kernel_size=3, stride=1, padding=1
         )
         self.conv = torch.nn.Conv1d(
             in_channels=d_model,

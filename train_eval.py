@@ -15,36 +15,20 @@ from sklearn.metrics import confusion_matrix
 
 
 def train(args, model, optimizer, criterion, train_loader, device):
-    cur_loss = -100
+    cur_loss = float("inf")
     model.train()  # Turn on the train mode
     total_loss = 0.0
     batch_nr = 0
     start_time = time.time()
-    # src_mask = model.generate_square_subsequent_mask(bptt).to(device)
-    # for batch, i in enumerate(range(0, train_data.size(0) - 1, bptt)):
-    # data, targets = get_batch(train_data, i)
     for batch in tqdm(train_loader):
         batch_nr += 1
         data, targets = batch
-        data = data[:, :, 0].to(torch.float).to(device)
-        targets = targets.to(torch.float).to(device)
-        # plt.plot(data[0,:])
-        # plt.show()
+        data = data.to(torch.float).to(device)
+        targets = targets.to(torch.long).to(device)[:, 0]
         optimizer.zero_grad()
-        # if data.size(0) != bptt:
-        #     src_mask = model.generate_square_subsequent_mask(data.size(0)).to(device)
-        # print(data.shape)
-        # print(src_mask.shape)
-        # output = model(data) # if n_class>2, and use cross entropy loss
-        output = model(data)[:, 0]  # if n_class==2
-        # output = torch.argmax(output, dim=1)
-        # output = torch.tensor(output, dtype=torch.float, device=device, requires_grad=True)
-        # print('output:', output)
-        # print('targets:', targets)
+        output = model(data)
         loss = criterion(output, targets)
         loss.backward()
-        # plot_grad_flow(model.named_parameters())
-        # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=2.0 , norm_type=2)
         optimizer.step()
 
         total_loss += loss.item()
@@ -71,46 +55,30 @@ def evaluate(args, eval_model, data_source, criterion, device):
     loss_list = []
     eval_model.eval()  # Turn on the evaluation mode
     tot_val_loss = 0.0
-    val_batch_nr = 0
-    # src_mask = model.generate_square_subsequent_mask(bptt).to(device)
+    val_batch_nr = len(data_source)
     with torch.no_grad():
-        # for i in range(0, data_source.size(0) - 1, bptt):
-        #     data, targets = get_batch(data_source, i)
         for batch in data_source:
             data, targets = batch
-            data = data[:, :, 0]
-            data, targets = data.to(torch.float).to(device), targets.to(torch.float).to(
-                device
-            )
-            # if data.size(0) != bptt:
-            #     src_mask = model.generate_square_subsequent_mask(data.size(0)).to(device)
-            output = eval_model(data)[:, 0]
-            # output = torch.argmax(output, dim=1)
-            # output = torch.tensor(output, dtype=torch.float, device=device, requires_grad=True)
+            data, targets = data.to(torch.float).to(device), targets.to(torch.long).to(device)[:,0]
+            output = eval_model(data)
             loss = criterion(output, targets)
             tot_val_loss += loss.item()
-            val_batch_nr += 1
-            preds = np.round(torch.sigmoid(output).cpu().detach())
-            # print('val preds:', preds)
-            # print('val targets:', targets.cpu().detach())
+            preds = torch.argmax(torch.sigmoid(output).cpu().detach(),dim = 1).to(torch.float).numpy()
             predictions = np.append(predictions, preds)
-            true_label = np.append(true_label, targets.cpu().detach())
+            true_label = np.append(true_label, targets.cpu().detach().to(torch.float))
     # Get losses and accuracy
-    cm = confusion_matrix(true_label, predictions, labels=[0, 1])
+    for i,j in zip(true_label,predictions):
+        print(i,j,i == j)
+    reals = true_label==predictions
+    print(reals)
+    goods = np.full(true_label.shape,1)
+    cm = confusion_matrix(reals, goods, labels=[0, 1])
     acc = np.sum(np.diag(cm)) / np.sum(cm)
+    np.seterr("raise")
     TN, FP, FN, TP = cm.ravel()
-    # FP = cm.sum(axis=0) - np.diag(cm)
-    # FN = cm.sum(axis=1) - np.diag(cm)
-    # TP = np.diag(cm)
-    # TN = cm.sum() - (FP + FN + TP)
-    # Sensitivity, hit rate, recall, or true positive rate
-    # TPR = np.round(TP/(TP+FN), 4)
+    print(f"{TN = }, {FP = }, {FN = }, {TP = },")
     TPR = TP / (TP + FN)
-    # print(TPR.item())
-    # print(type(TPR.item()))
-    # Specificity or true negative rate
     TNR = TN / (TN + FP)
-    # print(TNR)
 
     wandb.log(
         {
