@@ -29,7 +29,7 @@ wandb.init(project="AF-transformer-test")
 # WandB – Config is a variable that holds and saves hyperparameters and inputs
 config = wandb.config  # Initialize config
 config.epochs = 1000  # number of epochs to train (default: 10)
-config.lr = 1e-2  # learning rate (default: 0.01)
+config.lr = 1e-5  # learning rate (default: 0.01)
 config.log_interval = 1  # how many batches to wait before logging training status
 config.emsize = 64  # embedding dimension == d_model
 config.dim_feedforward = (
@@ -38,7 +38,7 @@ config.dim_feedforward = (
 config.nlayers = 1  # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
 config.nhead = 16  # the number of heads in the multiheadattention models
 config.n_conv_layers = 2  # number of convolutional layers (before transformer encoder)
-config.dropout = 0.25  # the dropout value
+config.dropout = 0  # the dropout value
 config.dropout_other = 0.1  # dropout value for feedforward output layers
 config.n_class = 19
 # this is a process
@@ -94,7 +94,7 @@ for epoch in range(1, config.epochs + 1):
     if val_loss < best_val_loss:
         best_val_loss = val_loss
         best_model = model
-    if epoch > 10:
+    if epoch > 100:
         scheduler.step()
 
     epoch_time = time.time() - epoch_start_time

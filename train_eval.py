@@ -52,6 +52,7 @@ def train(args, model, optimizer, criterion, train_loader, device):
 def evaluate(args, eval_model, data_source, criterion, device):
     true_label = np.array([])
     predictions = np.array([])
+    outputs = []
     loss_list = []
     eval_model.eval()  # Turn on the evaluation mode
     tot_val_loss = 0.0
@@ -66,20 +67,23 @@ def evaluate(args, eval_model, data_source, criterion, device):
             preds = torch.argmax(torch.sigmoid(output).cpu().detach(),dim = 1).to(torch.float).numpy()
             predictions = np.append(predictions, preds)
             true_label = np.append(true_label, targets.cpu().detach().to(torch.float))
+            for i in (output).cpu().detach().to(torch.float).numpy():
+                outputs.append(i)
     # Get losses and accuracy
-    for i,j in zip(true_label,predictions):
-        print(i,j,i == j)
-    reals = true_label==predictions
-    print(reals)
+    # for i,j,a in zip(true_label,predictions,outputs):
+        # print(i,j,i == j,a,len(outputs))
+    preds = true_label==predictions
+    # print(reals)
     goods = np.full(true_label.shape,1)
-    cm = confusion_matrix(reals, goods, labels=[0, 1])
+    cm = confusion_matrix(goods, preds, labels=[0, 1])
     acc = np.sum(np.diag(cm)) / np.sum(cm)
     np.seterr("raise")
     TN, FP, FN, TP = cm.ravel()
     print(f"{TN = }, {FP = }, {FN = }, {TP = },")
-    TPR = TP / (TP + FN)
-    TNR = TN / (TN + FP)
-
+    # TPR = TP / (TP + FN)
+    # TNR = TN / (TN + FP)
+    TPR = 1
+    TNR = 0
     wandb.log(
         {
             "Test Accuracy": 100 * acc,

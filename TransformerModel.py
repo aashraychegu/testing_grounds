@@ -91,7 +91,6 @@ class TransformerModel(nn.Module):
         )
 
         self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
-        self.transformer_encoder2 = TransformerEncoder(encoder_layers, nlayers)
         self.d_model = d_model
         self.flatten_layer = torch.nn.Flatten()
 
@@ -106,7 +105,6 @@ class TransformerModel(nn.Module):
             torch.nn.Dropout(0.1),
             nn.Linear(512, 19)
         )
-        self.fc_out2 = torch.nn.Linear(1024, 1)
         self.conv1 = torch.nn.Conv1d(
             in_channels=1, out_channels=32, kernel_size=3, stride=1, padding=0
         )
