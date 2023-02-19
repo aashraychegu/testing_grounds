@@ -43,6 +43,7 @@ def train(args, model, optimizer, criterion, train_loader, device):
             #       )
             total_loss = 0.0
             start_time = time.time()
+        exit()
 
     # scheduler.step()
     wandb.log({"Train Loss": cur_loss})

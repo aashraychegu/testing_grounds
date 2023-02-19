@@ -13,7 +13,7 @@ import math
 
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, d_model, dropout=0.1, max_len=19000):
+    def __init__(self, d_model, dropout=0.1, max_len=1000):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=0.1)
         pe = torch.zeros(max_len, d_model)
@@ -55,10 +55,16 @@ class SelfAttentionPooling(nn.Module):
         return:
             utter_rep: size (N, H)
         """
+        print(f"{batch_rep.shape = }")
+        a = self.W(batch_rep)
+        print(f"{a.shape = }")
         softmax = nn.functional.softmax
-        att_w = softmax(self.W(batch_rep).squeeze(-1), -1).unsqueeze(-1)
-        utter_rep = torch.sum(batch_rep * att_w, dim=1)
-
+        att_w = softmax(a.squeeze(-1), -1)
+        print(f"{att_w.shape = }")
+        b = att_w.unsqueeze(-1)
+        print(f"{b.shape = }")
+        utter_rep = torch.sum(batch_rep * b, dim=1)
+        print(f"{utter_rep.shape = }")
         return utter_rep
 
 
