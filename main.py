@@ -29,7 +29,7 @@ wandb.init(project="AF-transformer-test")
 # WandB – Config is a variable that holds and saves hyperparameters and inputs
 config = wandb.config  # Initialize config
 config.epochs = 1000  # number of epochs to train (default: 10)
-config.lr = 1e-5  # learning rate (default: 0.01)
+config.lr = 1e-9  # learning rate (default: 0.01)
 config.log_interval = 1  # how many batches to wait before logging training status
 config.emsize = 64  # embedding dimension == d_model
 config.dim_feedforward = (

@@ -7,27 +7,23 @@ from os import devnull as print_supression_source
 import numpy as np
 import torch
 from torch.nn.functional import pad as pad_tensor
+from scipy.signal import argrelextrema
 
 maxlen = 4678
 padlen = 4678 + 2
 
 
-
-def rekey(inp_dict, keys_replace):
-    return {keys_replace.get(k, k): v for k, v in inp_dict.items()}
-
-def cut_at_lowest_envelope(hplus,env):
-    #Cutting inspiral off
+def cut_at_lowest_envelope(hplus, hcross):
+    # Cutting inspiral off
+    oenv = np.sqrt(hplus**2 + hcross**2)
     cut_point = np.argmax(hplus)
-    n = len(hplus)
-    env_max = np.argmax(env)
+    mhplus = hplus[cut_point:]
+    env = oenv[cut_point:]
+    envcut = argrelextrema(env,np.less)
+    if len(envcut[0])==0:
+        return mhplus
+    return mhplus[envcut[0][0]:]
 
-    for l in range(env_max, n):
-            if env[l] < env[l+1]:
-                cut_point = l
-                break
-
-    return hplus[cut_point:]
 
 class HiddenPrints:
     def __enter__(self):
@@ -64,27 +60,26 @@ class CoRe_DB_Dataset(Dataset):
             if sync:
                 cdb.sync(verbose=False, lfs=True)
             self.sims = cdb.sim
+
         for sim_key in self.sims:
             sim = self.sims[sim_key]
             for run_key in sim.run:
                 run = sim.run[run_key]
                 current_h5_filepath = p.Path(
                     self.sims[sim_key].run[run_key].data.path)
-                self.eoss.append(run.md.data["id_eos"])
                 current_h5_file = h5.File(current_h5_filepath / "data.h5", "r")
-                current_rh_waveforms = [
-                    i for i in current_h5_file.keys() if i == "rh_22"
-                ]
+                current_rh_waveforms = [i for i in current_h5_file.keys() if i == "rh_22"]
                 for selected_wf in current_rh_waveforms:
-                    extraction_radii = list(
-                        current_h5_file[selected_wf].keys())
+                    extraction_radii = list(current_h5_file[selected_wf].keys())
                     for extraction_radius in extraction_radii:
-                        self.pspace.append(
-                            (sim_key, run_key, selected_wf, extraction_radius)
-                        )
+                        self.eoss.append(run.md.data["id_eos"])
+                        inserter = (sim_key, run_key, selected_wf, extraction_radius)
+                        self.pspace.append(inserter)
+        #----                
         self.pspace = tuple(self.pspace)
-        self.eoss = list(sorted(set(self.eoss)))
-        self.eosmap = {i: self.eoss.index(i) for i in self.eoss}
+        self.ueoss,self.ueosscounts = np.unique(np.array(self.eoss),return_counts=True)
+        setueoss = list(self.ueoss)
+        self.eosmap = {i: setueoss.index(i) for i in self.ueoss}
         self.numeoss = len(self.eoss)
 
     def __len__(self):
@@ -98,7 +93,7 @@ class CoRe_DB_Dataset(Dataset):
         h5path = p.Path(data.data.path) / "data.h5"
         metadata = {i: data.md.data[i] for i in self.sel_attr}
         data = h5.File(h5path, "r")[psl[2]][psl[3]]
-        data = cut_at_lowest_envelope(data[:,1],data[:,6])
+        data = cut_at_lowest_envelope(data[:, 1], data[:, 2])
         return data, metadata
 
     def preprocess(self, data):
@@ -107,34 +102,24 @@ class CoRe_DB_Dataset(Dataset):
         ).to(self.device)
 
     def preprocess_ts(self, ts):
-        ts = np.pad(ts, (int((maxlen - len(ts))/2), int((maxlen - len(ts))/2)),
-                    "constant", constant_values=0)
-        ts = np.pad(ts, (0, padlen - len(ts)), "constant", constant_values=0)
         return torch.tensor(ts).to(torch.float16)
 
     def preprocess_params(self, params):
-        params = rekey(
-            params,
-            {
-                "id_eos": "eos",
-                "id_mass_starA": "m1s",
-                "id_mass_starB": "m2s",
-            },
-        )
-        params["eos"] = self.eosmap[params["eos"]]
-        params["m1s"] = float(params["m1s"])
-        params["m2s"] = float(params["m2s"])
-        return torch.tensor(list(params.values())).to(torch.float32)
+        outlist = [self.eosmap[params["id_eos"]],
+        float(params["id_mass_starA"]),
+        float(params["id_mass_starB"])]
+        return torch.tensor(outlist).to(torch.float32)
 
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 dataset = CoRe_DB_Dataset(sync=False, device=device)
-dataloader = DataLoader(
-    dataset,
-    batch_size=16,
-    shuffle=True,
-    # num_workers=4
-)
+def get_dataset(batch_size = 16):
+    return DataLoader(dataset,batch_size=batch_size,shuffle = True,)
+
 if __name__ == "__main__":
+    print(len(dataset))
+    lens = []
     for i in dataset:
-        print(i[0].shape)
+        lens.append(i[1][0].cpu().item())
+    print(set(lens))
+    print(np.unique(np.array(lens)))

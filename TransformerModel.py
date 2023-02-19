@@ -13,7 +13,7 @@ import math
 
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, d_model, dropout=0.1, max_len=1500):
+    def __init__(self, d_model, dropout=0.1, max_len=19000):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=0.1)
         pe = torch.zeros(max_len, d_model)
@@ -138,4 +138,4 @@ class TransformerModel(nn.Module):
         output = self.transformer_encoder(src)
         output = output.permute(1, 0, 2)
         output = self.self_att_pool(output)
-        return self.decoder(output)
+        return nn.functional.softmax(self.decoder(output))
