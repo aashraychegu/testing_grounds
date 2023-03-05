@@ -1,4 +1,4 @@
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, TensorDataset
 import h5py as h5
 from watpy.coredb.coredb import *
 import pathlib as p
@@ -9,11 +9,24 @@ import torch
 from scipy.signal import argrelextrema
 import pywt
 import random
+import math
+import time 
 
 scale_min = 1
 scale_max = 201
 dscale = 0.1
 FIN_WIDTH= 400
+TOLERACE = 400  
+pad_to_for_planck_window = 90
+p2 = pad_to_for_planck_window
+
+def planck_window(j:int,N:int):
+    window = np.linspace(0,j-1,j-1)
+    window[0] = 1
+    window =  1./(1. + np.exp(j/window - j/(j-window)))
+    window[0] = 0
+    window = np.concatenate((window,np.ones((N-(j*2))),np.flip(window,)))
+    return window
 
 def cut_at_lowest_envelope(hplus, hcross):
     # Cutting inspiral off
@@ -128,8 +141,19 @@ class CoRe_DB_Dataset(Dataset):
         ).to(self.device)
 
     def preprocess_ts(self, ts,sam_p):
-        z = pad_width(wt(ts,sam_p))
-        return torch.tensor(z).to(torch.float16)
+        lts = len(ts)
+        print(lts)
+        if lts == 0:
+            rts = np.zeros(90)
+            rts[45] = ts[0]
+            ts = rts
+        elif lts < p2:
+            ts = np.concatenate((np.zeros(math.floor(p2-lts)),ts,np.zeros(math.ceil(p2-lts))),axis = 0)
+            print("contingency")
+        win = planck_window(math.floor(math.log(len(ts)/2)*6),len(ts))
+
+        return torch.tensor(pad_width(wt(ts,sam_p))).to(torch.float16)
+
 
     def preprocess_params(self, params):
         outlist = [self.eosmap[params["id_eos"]],
@@ -139,16 +163,40 @@ class CoRe_DB_Dataset(Dataset):
     
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-dataset = CoRe_DB_Dataset(sync=False, device=device)
 
 def get_dataset(dsdevice = device,sync = False,rsamp = 1.):
     return CoRe_DB_Dataset(sync=sync, device=dsdevice,randsamp=rsamp)
     
+dataset = get_dataset()
+
+def to_pth_file(fname = "processed_spectrograms.pth"):
+    btime = time.time()
+    len_dataset = len(dataset)
+    print("finished with Initialization")
+    print("pspace: ",len(dataset.pspace))
+    spectrograms = []
+    params = []
+    for i,(spectrogram,param) in enumerate(dataset): #type: ignore
+        print(i,len_dataset,spectrogram.shape,(time.time()-btime)/60)
+        spectrograms.append(spectrogram)
+        params.append(param)
+    spectrogram_tensor = torch.stack(spectrograms)
+    params_tensor = torch.stack(params)
+    torch.save([spectrogram_tensor,params_tensor],fname)
+
+def load_pth_file(fname = "processed_spectrograms.pth",train_dl_batch_size=16,test_dl_batch_size = 128*2):
+    spectrograms, parameters = torch.load("processed_spectrograms.pth")
+    tensor_dataset = TensorDataset(spectrograms,parameters)
+    train_dl= DataLoader(tensor_dataset,batch_size=train_dl_batch_size)
+    test_dl = DataLoader(tensor_dataset,batch_size=test_dl_batch_size)
+    return train_dl,test_dl
+
+def load_raw_from_pth_file(fname = "processed_spectrograms.pth"):
+    spectrograms, parameters = torch.load("processed_spectrograms.pth")
+    tensor_dataset = TensorDataset(spectrograms,parameters)
+    return spectrograms,parameters
 
 if __name__ == "__main__":
-    print(len(dataset))
-    lens = []
-    for i in dataset:
-        lens.append(i[1][0].cpu().item())
-    print(set(lens))
-    print(np.unique(np.array(lens)))
+    to_pth_file()
+    a,b = load_pth_file()
+    print(len(a),len(b))

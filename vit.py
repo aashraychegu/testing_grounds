@@ -161,9 +161,9 @@ def main():
     # Loading data
     transform = ToTensor()
 
-    train_set = MNIST(root='./../datasets', train=True, download=True, transform=transform)
-    test_set = MNIST(root='./../datasets', train=False, download=True, transform=transform)
-
+    train_set = MNIST(root='./test_data/datasets', train=True, download=True, transform=transform)
+    test_set = MNIST(root='./test_data/datasets', train=False, download=True, transform=transform)
+    
     train_loader = DataLoader(train_set, shuffle=True, batch_size=128)
     test_loader = DataLoader(test_set, shuffle=False, batch_size=128)
 
