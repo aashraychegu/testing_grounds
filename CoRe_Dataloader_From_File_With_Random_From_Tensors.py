@@ -92,8 +92,10 @@ def get_new_test_train_dataloaders(p=.1):
     original = train_ds.index_map
     sampled = set(random.sample(original, math.floor(length*p)))
     substracted = set(original)-sampled
-    test_ds = CoRe_Dataset_RNoise(sgrams, params, input_index_map=sampled)
-    train_ds = CoRe_Dataset_RNoise(sgrams, params, input_index_map=substracted)
+    test_ds = CoRe_Dataset_RNoise(
+        sgrams, params, input_index_map=list(sampled))
+    train_ds = CoRe_Dataset_RNoise(
+        sgrams, params, input_index_map=list(substracted))
     print(len(sampled), len(substracted))
     return DataLoader(train_ds, batch_size=20, shuffle=True), DataLoader(test_ds, batch_size=128, shuffle=True)
 
