@@ -6,6 +6,7 @@ import math
 from sklearn.model_selection import train_test_split
 import time
 import random
+from typing import *
 
 
 def calculate_std(a: torch.Tensor, snr: float):
@@ -85,17 +86,19 @@ def to_pth_file(dataset, fname="processed_spectrograms.pth",):
     torch.save([spectrogram_tensor, params_tensor], fname)
 
 
-def get_new_test_train_dataloaders(p=.1):
+def get_new_test_train_dataloaders(p: float = .1) -> Tuple[DataLoader, DataLoader]:
     sgrams, params = load_raw_from_pth_file()
     train_ds = CoRe_Dataset_RNoise(sgrams, params)
     length = len(train_ds)
     original = train_ds.index_map
     sampled = set(random.sample(original, math.floor(length*p)))
     substracted = set(original)-sampled
-    test_ds = CoRe_Dataset_RNoise(sgrams, params, input_index_map=sampled)
-    train_ds = CoRe_Dataset_RNoise(sgrams, params, input_index_map=substracted)
+    test_ds = CoRe_Dataset_RNoise(
+        sgrams, params, input_index_map=list(sampled))
+    train_ds = CoRe_Dataset_RNoise(
+        sgrams, params, input_index_map=list(substracted))
     print(len(sampled), len(substracted))
-    return DataLoader(train_ds, batch_size=20, shuffle=True), DataLoader(test_ds, batch_size=128, shuffle=True)
+    return DataLoader(train_ds, batch_size=16, shuffle=True), DataLoader(test_ds, batch_size=64, shuffle=True)
 
 
 if __name__ == "__main__":
