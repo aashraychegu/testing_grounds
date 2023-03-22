@@ -11,6 +11,7 @@ import pywt
 import random
 import math
 import time
+from sklearn.model_selection import train_test_split
 
 scale_min = 1
 scale_max = 201
@@ -222,17 +223,30 @@ def load_pth_file(
     fname="processed_spectrograms.pth",
     train_dl_batch_size=16,
     test_dl_batch_size=128 * 2,
+    test_split_value=0.1,
+    val_split_value=0.1,
 ):
-    spectrograms, parameters = torch.load("processed_spectrograms.pth")
-    tensor_dataset = TensorDataset(spectrograms, parameters)
-    train_dl = DataLoader(tensor_dataset, batch_size=train_dl_batch_size)
-    test_dl = DataLoader(tensor_dataset, batch_size=test_dl_batch_size)
-    return train_dl, test_dl
+    spectrograms, parameters = torch.load(fname)
+    x_train, x_c_test, y_train, y_c_test = train_test_split(
+        spectrograms, parameters, test_size=(test_split_value + val_split_value)
+    )
+    x_test, x_val, y_test, y_val = train_test_split(
+        spectrograms,
+        parameters,
+        test_size=(val_split_value / (test_split_value + val_split_value)),
+    )
+    train_dataset = TensorDataset(x_train, y_train)
+    test_dataset = TensorDataset(x_test, y_test)
+    valid_dataset = TensorDataset(x_val, y_val)
+    return (
+        DataLoader(train_dataset, shuffle=True, batch_size=train_dl_batch_size),
+        DataLoader(test_dataset, shuffle=True, batch_size=test_dl_batch_size),
+        DataLoader(valid_dataset, shuffle=True, batch_size=test_dl_batch_size),
+    )
 
 
 def load_raw_from_pth_file(fname="processed_spectrograms.pth"):
-    spectrograms, parameters = torch.load("processed_spectrograms.pth")
-    tensor_dataset = TensorDataset(spectrograms, parameters)
+    spectrograms, parameters = torch.load(fname)
     return spectrograms, parameters
 
 
