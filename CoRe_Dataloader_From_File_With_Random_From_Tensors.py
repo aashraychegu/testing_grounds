@@ -9,7 +9,7 @@ import random
 
 
 def calculate_std(a: torch.Tensor, snr: float):
-    return ((torch.mean(a**2)/snr)**0.5).item()
+    return ((torch.mean(a**2) / snr) ** 0.5).item()
 
 
 def mknoise(a: torch.Tensor, snr: float):
@@ -26,12 +26,11 @@ def pltT(a):
 def get_new_test_train_datasets(p=0.3):
     raw_sgram_ds, raw_param_ds = load_raw_from_pth_file()
     xtrain, xtest, ytrain, ytest = train_test_split(
-        raw_sgram_ds.cpu().numpy(), raw_param_ds.cpu().numpy(), test_size=p)
+        raw_sgram_ds.cpu().numpy(), raw_param_ds.cpu().numpy(), test_size=p
+    )
     # print(xtrain.shape, xtest.shape)
-    train_dataset = CoRe_Dataset_RNoise(
-        torch.tensor(xtrain), torch.tensor(ytrain))
-    test_dataset = CoRe_Dataset_RNoise(
-        torch.tensor(xtest), torch.tensor(ytest))
+    train_dataset = CoRe_Dataset_RNoise(torch.tensor(xtrain), torch.tensor(ytrain))
+    test_dataset = CoRe_Dataset_RNoise(torch.tensor(xtest), torch.tensor(ytest))
     return train_dataset, test_dataset
 
 
@@ -41,7 +40,7 @@ class CoRe_Dataset_RNoise(Dataset):
         self.spectrograms, self.params = sgs, params
         self.raw_length = len(self.spectrograms)
         if snrs is None:
-            snrs = [i/100 for i in range(1, 501, 3)]
+            snrs = [i / 100 for i in range(1, 501, 3)]
             snrs.append(0)
         self.snrlength = len(snrs)
         self.index_map = []
@@ -60,7 +59,7 @@ class CoRe_Dataset_RNoise(Dataset):
         sgindex, snr = self.index_map[index]
         spectrogram = self.spectrograms[sgindex].to(torch.float64)
         params = self.params[sgindex]
-        std = ((torch.mean(spectrogram**2)/snr)**0.5)
+        std = (torch.mean(spectrogram**2) / snr) ** 0.5
         if snr == 0:
             std = 0
         noise = torch.normal(0, std, spectrogram.shape)
@@ -70,14 +69,17 @@ class CoRe_Dataset_RNoise(Dataset):
         return self.length
 
 
-def to_pth_file(dataset, fname="processed_spectrograms.pth",):
+def to_pth_file(
+    dataset,
+    fname="processed_spectrograms.pth",
+):
     btime = time.time()
     len_dataset = len(dataset)
     print("finished with Initialization")
     spectrograms = []
     params = []
     for i, (spectrogram, param) in enumerate(dataset):  # type: ignore
-        print(i, len_dataset, spectrogram.shape, (time.time()-btime)/60)
+        print(i, len_dataset, spectrogram.shape, (time.time() - btime) / 60)
         spectrograms.append(spectrogram)
         params.append(param)
     spectrogram_tensor = torch.stack(spectrograms)
@@ -85,19 +87,38 @@ def to_pth_file(dataset, fname="processed_spectrograms.pth",):
     torch.save([spectrogram_tensor, params_tensor], fname)
 
 
-def get_new_test_train_dataloaders(p=.1):
+def get_new_test_train_validation_datasets(test_split=0.1, valid_split=0.1):
     sgrams, params = load_raw_from_pth_file()
-    train_ds = CoRe_Dataset_RNoise(sgrams, params)
-    length = len(train_ds)
-    original = train_ds.index_map
-    sampled = set(random.sample(original, math.floor(length*p)))
-    substracted = set(original)-sampled
-    test_ds = CoRe_Dataset_RNoise(sgrams, params, input_index_map=sampled)
-    train_ds = CoRe_Dataset_RNoise(sgrams, params, input_index_map=substracted)
-    print(len(sampled), len(substracted))
-    return DataLoader(train_ds, batch_size=20, shuffle=True), DataLoader(test_ds, batch_size=128, shuffle=True)
+    original_ds = CoRe_Dataset_RNoise(sgrams, params)
+    length = len(original_ds)
+    print(length)
+    original = original_ds.index_map
+    del original_ds
+    p = test_split + valid_split
+    testval_set = set(random.sample(original, math.ceil(length * p)))
+    train_set = set(original) - testval_set
+
+    test_set = set(random.sample(list(testval_set), math.ceil(length * test_split)))
+    valid_set = set(testval_set) - test_set
+
+    train_ds = CoRe_Dataset_RNoise(sgrams, params, input_index_map=train_set)
+    test_ds = CoRe_Dataset_RNoise(sgrams, params, input_index_map=test_set)
+    valid_ds = CoRe_Dataset_RNoise(sgrams, params, input_index_map=valid_set)
+
+    return train_ds, test_ds, valid_ds
+
+
+def get_new_ttv_dataloaders(test_split=0.1, valid_split=0.1):
+    train_ds, test_ds, valid_ds = get_new_test_train_validation_datasets(
+        test_split=test_split, valid_split=valid_split
+    )
+    return (
+        DataLoader(train_ds, batch_size=20, shuffle=True),
+        DataLoader(test_ds, batch_size=128, shuffle=True),
+        DataLoader(valid_ds, batch_size=128, shuffle=True),
+    )
 
 
 if __name__ == "__main__":
-    train_dl, test_dl = get_new_test_train_dataloaders()
-    print(len(train_dl), len(test_dl))
+    train_dl, test_dl, valid_dl = get_new_ttv_dataloaders()
+    print(len(train_dl), len(test_dl), len(valid_dl))
