@@ -231,8 +231,8 @@ def load_pth_file(
         spectrograms, parameters, test_size=(test_split_value + val_split_value)
     )
     x_test, x_val, y_test, y_val = train_test_split(
-        spectrograms,
-        parameters,
+        x_c_test,
+        y_c_test,
         test_size=(val_split_value / (test_split_value + val_split_value)),
     )
     train_dataset = TensorDataset(x_train, y_train)
