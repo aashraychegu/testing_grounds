@@ -30,8 +30,10 @@ def get_new_test_train_datasets(p=0.3):
         raw_sgram_ds.cpu().numpy(), raw_param_ds.cpu().numpy(), test_size=p
     )
     # print(xtrain.shape, xtest.shape)
-    train_dataset = CoRe_Dataset_RNoise(torch.tensor(xtrain), torch.tensor(ytrain))
-    test_dataset = CoRe_Dataset_RNoise(torch.tensor(xtest), torch.tensor(ytest))
+    train_dataset = CoRe_Dataset_RNoise(
+        torch.tensor(xtrain), torch.tensor(ytrain))
+    test_dataset = CoRe_Dataset_RNoise(
+        torch.tensor(xtest), torch.tensor(ytest))
     return train_dataset, test_dataset
 
 
@@ -41,7 +43,7 @@ class CoRe_Dataset_RNoise(Dataset):
         self.spectrograms, self.params = sgs, params
         self.raw_length = len(self.spectrograms)
         if snrs is None:
-            snrs = [i / 100 for i in range(1, 501, 3)]
+            snrs = [i / 100 for i in range(1, 1001, 10)]
             snrs.append(0)
         self.snrlength = len(snrs)
         self.index_map = []
@@ -88,21 +90,6 @@ def to_pth_file(
     torch.save([spectrogram_tensor, params_tensor], fname)
 
 
-<<<<<<< HEAD
-def get_new_test_train_dataloaders(p: float = .1) -> Tuple[DataLoader, DataLoader]:
-    sgrams, params = load_raw_from_pth_file()
-    train_ds = CoRe_Dataset_RNoise(sgrams, params)
-    length = len(train_ds)
-    original = train_ds.index_map
-    sampled = set(random.sample(original, math.floor(length*p)))
-    substracted = set(original)-sampled
-    test_ds = CoRe_Dataset_RNoise(
-        sgrams, params, input_index_map=list(sampled))
-    train_ds = CoRe_Dataset_RNoise(
-        sgrams, params, input_index_map=list(substracted))
-    print(len(sampled), len(substracted))
-    return DataLoader(train_ds, batch_size=16, shuffle=True), DataLoader(test_ds, batch_size=64, shuffle=True)
-=======
 def get_new_test_train_validation_datasets(test_split=0.1, valid_split=0.1):
     sgrams, params = load_raw_from_pth_file()
     original_ds = CoRe_Dataset_RNoise(sgrams, params)
@@ -114,7 +101,8 @@ def get_new_test_train_validation_datasets(test_split=0.1, valid_split=0.1):
     testval_set = set(random.sample(original, math.ceil(length * p)))
     train_set = set(original) - testval_set
 
-    test_set = set(random.sample(list(testval_set), math.ceil(length * test_split)))
+    test_set = set(random.sample(list(testval_set),
+                   math.ceil(length * test_split)))
     valid_set = set(testval_set) - test_set
 
     train_ds = CoRe_Dataset_RNoise(sgrams, params, input_index_map=train_set)
@@ -130,12 +118,11 @@ def get_new_ttv_dataloaders(test_split=0.1, valid_split=0.1):
     )
     return (
         DataLoader(train_ds, batch_size=20, shuffle=True),
-        DataLoader(test_ds, batch_size=128, shuffle=True),
         DataLoader(valid_ds, batch_size=128, shuffle=True),
+        DataLoader(test_ds, batch_size=128, shuffle=True),
     )
->>>>>>> validation_split
 
 
 if __name__ == "__main__":
-    train_dl, test_dl, valid_dl = get_new_ttv_dataloaders()
+    train_dl, valid_dl, test_dl = get_new_ttv_dataloaders()
     print(len(train_dl), len(test_dl), len(valid_dl))

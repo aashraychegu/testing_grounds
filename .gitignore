@@ -24,3 +24,7 @@ timages
 *.onnx
 *.pth
 *.pt
+*.zip
+*zip
+*.ignore.*
+*.IG.*
