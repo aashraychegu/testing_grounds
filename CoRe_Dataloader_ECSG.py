@@ -215,3 +215,4 @@ if __name__ == "__main__":
     to_pth_file()
     a, b = load_pth_file()
     print(len(a), len(b))
+    #type: ignore

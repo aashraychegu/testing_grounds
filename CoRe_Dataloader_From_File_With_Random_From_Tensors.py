@@ -43,7 +43,7 @@ class CoRe_Dataset_RNoise(Dataset):
         self.spectrograms, self.params = sgs, params
         self.raw_length = len(self.spectrograms)
         if snrs is None:
-            snrs = [i / 100 for i in range(1, 1001, 10)]
+            snrs = [i / 200 for i in range(1, 1001, 5)]
             snrs.append(0)
         self.snrlength = len(snrs)
         self.index_map = []
@@ -105,9 +105,12 @@ def get_new_test_train_validation_datasets(test_split=0.1, valid_split=0.1):
                    math.ceil(length * test_split)))
     valid_set = set(testval_set) - test_set
 
-    train_ds = CoRe_Dataset_RNoise(sgrams, params, input_index_map=train_set)
-    test_ds = CoRe_Dataset_RNoise(sgrams, params, input_index_map=test_set)
-    valid_ds = CoRe_Dataset_RNoise(sgrams, params, input_index_map=valid_set)
+    train_ds = CoRe_Dataset_RNoise(
+        sgrams, params, input_index_map=list(train_set))
+    test_ds = CoRe_Dataset_RNoise(
+        sgrams, params, input_index_map=list(test_set))
+    valid_ds = CoRe_Dataset_RNoise(
+        sgrams, params, input_index_map=list(valid_set))
 
     return train_ds, test_ds, valid_ds
 
@@ -117,7 +120,7 @@ def get_new_ttv_dataloaders(test_split=0.1, valid_split=0.1):
         test_split=test_split, valid_split=valid_split
     )
     return (
-        DataLoader(train_ds, batch_size=20, shuffle=True),
+        DataLoader(train_ds, batch_size=16, shuffle=True),
         DataLoader(valid_ds, batch_size=128, shuffle=True),
         DataLoader(test_ds, batch_size=128, shuffle=True),
     )
