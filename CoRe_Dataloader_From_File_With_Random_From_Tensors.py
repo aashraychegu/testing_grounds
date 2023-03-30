@@ -24,24 +24,12 @@ def pltT(a):
     plt.show()
 
 
-def get_new_test_train_datasets(p=0.3):
-    raw_sgram_ds, raw_param_ds = load_raw_from_pth_file()
-    xtrain, xtest, ytrain, ytest = train_test_split(
-        raw_sgram_ds.cpu().numpy(), raw_param_ds.cpu().numpy(), test_size=p
-    )
-    # print(xtrain.shape, xtest.shape)
-    train_dataset = CoRe_Dataset_RNoise(
-        torch.tensor(xtrain), torch.tensor(ytrain))
-    test_dataset = CoRe_Dataset_RNoise(
-        torch.tensor(xtest), torch.tensor(ytest))
-    return train_dataset, test_dataset
-
-
 class CoRe_Dataset_RNoise(Dataset):
     def __init__(self, sgs, params, device="cuda:0", snrs=None, input_index_map=[]):
         self.device = device
         self.spectrograms, self.params = sgs, params
         self.raw_length = len(self.spectrograms)
+
         if snrs is None:
             snrs = [i / 200 for i in range(1, 1001, 5)]
             snrs.append(0)
@@ -62,6 +50,8 @@ class CoRe_Dataset_RNoise(Dataset):
         sgindex, snr = self.index_map[index]
         spectrogram = self.spectrograms[sgindex].to(torch.float64)
         params = self.params[sgindex]
+        params = torch.cat(
+            (params, torch.tensor([snr]).to(device=self.device)))
         std = (torch.mean(spectrogram**2) / snr) ** 0.5
         if snr == 0:
             std = 0
@@ -94,7 +84,7 @@ def get_new_test_train_validation_datasets(test_split=0.1, valid_split=0.1):
     sgrams, params = load_raw_from_pth_file()
     original_ds = CoRe_Dataset_RNoise(sgrams, params)
     length = len(original_ds)
-    print(length)
+    # print(length)
     original = original_ds.index_map
     del original_ds
     p = test_split + valid_split
@@ -121,11 +111,14 @@ def get_new_ttv_dataloaders(test_split=0.1, valid_split=0.1):
     )
     return (
         DataLoader(train_ds, batch_size=16, shuffle=True),
-        DataLoader(valid_ds, batch_size=128, shuffle=True),
-        DataLoader(test_ds, batch_size=128, shuffle=True),
+        DataLoader(valid_ds, batch_size=40, shuffle=True),
+        DataLoader(test_ds, batch_size=40, shuffle=True),
     )
 
 
 if __name__ == "__main__":
-    train_dl, valid_dl, test_dl = get_new_ttv_dataloaders()
-    print(len(train_dl), len(test_dl), len(valid_dl))
+    # train_dl, valid_dl, test_dl = get_new_ttv_dataloaders(0,0)
+    train_dl, valid_dl, test_dl = get_new_test_train_validation_datasets(0, 0)
+
+    print(len(train_dl), len(test_dl), len(valid_dl), "\n")
+    print(train_dl[5][1])
