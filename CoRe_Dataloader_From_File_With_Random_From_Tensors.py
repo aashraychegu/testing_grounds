@@ -7,6 +7,8 @@ from sklearn.model_selection import train_test_split
 import time
 import random
 from typing import *
+import torchvision.transforms as transforms
+gblur = transforms.GaussianBlur(11, sigma=(100, 100))
 
 
 def calculate_std(a: torch.Tensor, snr: float):
@@ -56,6 +58,8 @@ class CoRe_Dataset_RNoise(Dataset):
         if snr == 0:
             std = 0
         noise = torch.normal(0, std, spectrogram.shape)
+        spectrogram = torch.abs(torch.squeeze(
+            gblur(torch.unsqueeze(spectrogram, 0))) - spectrogram)
         return spectrogram.to(self.device) + noise.to(self.device), params
 
     def __len__(self):
