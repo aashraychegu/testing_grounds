@@ -58,8 +58,8 @@ class CoRe_Dataset_RNoise(Dataset):
         if snr == 0:
             std = 0
         noise = torch.normal(0, std, spectrogram.shape)
-        spectrogram = torch.abs(torch.squeeze(
-            gblur(torch.unsqueeze(spectrogram, 0))) - spectrogram)
+        # spectrogram = torch.abs(torch.squeeze(
+        #     gblur(torch.unsqueeze(spectrogram, 0))) - spectrogram)
         return spectrogram.to(self.device) + noise.to(self.device), params
 
     def __len__(self):
