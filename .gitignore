@@ -30,3 +30,6 @@ timages
 */plots
 /plot_generation
 *.pd*
+*.png
+images/*
+./images

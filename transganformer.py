@@ -705,7 +705,7 @@ class Generator(nn.Module):
         for ind in range(num_layers):
             is_last = ind == (num_layers - 1)
 
-            downsample_factor = int(2 ** max(log2(fmap_size) - log2(256), 0))
+            downsample_factor = int(2 ** max(log2(fmap_size) - log2(image_size), 0))
             attn_class = partial(
                 Attention, bn=True, fmap_size=fmap_size, downsample_kv=downsample_factor
             )
