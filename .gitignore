@@ -33,3 +33,7 @@ timages
 *.png
 images/*
 ./images
+./runs/*
+./generated_images/*
+*.jpg
+*.tfevents.*
