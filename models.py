@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from diff_aug import DiffAugment
+import numpy as np
 
 
 class MLP(nn.Module):
@@ -114,6 +115,7 @@ class Generator(nn.Module):
         mlp_ratio=4,
         drop_rate=0.0,
         latent_dim=1024,
+        output_channels=1,
     ):
         super(Generator, self).__init__()
 
@@ -161,25 +163,30 @@ class Generator(nn.Module):
             drop_rate=self.droprate_rate,
         )
 
-        self.linear = nn.Sequential(nn.Conv2d(self.dim // 16, 3, 1, 1, 0))
+        self.linear = nn.Sequential(nn.Conv2d(self.dim // 16, output_channels, 1, 1, 0))
 
     def forward(self, noise):
         x = self.mlp(noise).view(-1, self.initial_size**2, self.dim)
-
+        # print(x.shape, 1)
         x = x + self.positional_embedding_1
+        # print(x.shape, 2)
         H, W = self.initial_size, self.initial_size
         x = self.TransformerEncoder_encoder1(x)
-
+        # print(x.shape, 3)
         x, H, W = UpSampling(x, H, W)
+        # print(x.shape, 4)
         x = x + self.positional_embedding_2
+        # print(x.shape, 5)
         x = self.TransformerEncoder_encoder2(x)
-
+        # print(x.shape, 6)
         x, H, W = UpSampling(x, H, W)
+        # print(x.shape, 7)
         x = x + self.positional_embedding_3
-
+        # print(x.shape, 8)
         x = self.TransformerEncoder_encoder3(x)
+        # print(x.shape, 9)
         x = self.linear(x.permute(0, 2, 1).view(-1, self.dim // 16, H, W))
-
+        # print(x.shape, 10)
         return x
 
 
@@ -257,7 +264,7 @@ if __name__ == "__main__":
         depth2=1,
         depth3=1,
         initial_size=16,
-        dim=384,
+        dim=128 * 4,
         heads=1,
         mlp_ratio=2,
         drop_rate=0.5,
@@ -266,4 +273,4 @@ if __name__ == "__main__":
 
     noise = torch.cuda.FloatTensor(np.random.normal(0, 1, (1, 256)))
     noise = noise.to(device)
-    print(generator(noise).shape)
+    # print(generator(noise).shape)
