@@ -27,6 +27,8 @@ class Attention(nn.Module):
     def __init__(self, dim, heads=4, attention_dropout=0.0, proj_dropout=0.0):
         super().__init__()
         self.heads = heads
+        self.dim = dim
+        # print(dim)
         self.scale = 1.0 / dim**0.5
 
         self.qkv = nn.Linear(dim, dim * 3, bias=False)
@@ -37,7 +39,7 @@ class Attention(nn.Module):
         b, n, c = x.shape
         qkv = self.qkv(x).reshape(b, n, 3, self.heads, c // self.heads)
         q, k, v = qkv.permute(2, 0, 3, 1, 4)
-        print("qkv.shape:", qkv.shape, q.shape, k.shape, v.shape)
+        print("qkv.shape:", qkv.shape, "Dim:", self.dim, x.shape)
         dot = (q @ k.transpose(-2, -1)) * self.scale
         attn = dot.softmax(dim=-1)
         attn = self.attention_dropout(attn)
@@ -59,12 +61,12 @@ class ImgPatches(nn.Module):
         return patches
 
 
-def UpSampling(x, H, W):
+def UpSampling(x, H, W, psfac=2):
     B, N, C = x.size()
     assert N == H * W
     x = x.permute(0, 2, 1)
     x = x.view(-1, C, H, W)
-    x = nn.PixelShuffle(2)(x)
+    x = nn.PixelShuffle(psfac)(x)
     B, C, H, W = x.size()
     x = x.view(-1, C, H * W)
     x = x.permute(0, 2, 1)
@@ -97,96 +99,6 @@ class TransformerEncoder(nn.Module):
     def forward(self, x):
         for Encoder_Block in self.Encoder_Blocks:
             x = Encoder_Block(x)
-        return x
-
-
-class Generator(nn.Module):
-    """docstring for Generator"""
-
-    # ,device=device):
-    def __init__(
-        self,
-        depth1=5,
-        depth2=4,
-        depth3=2,
-        initial_size=8,
-        dim=384,
-        heads=4,
-        mlp_ratio=4,
-        drop_rate=0.0,
-        latent_dim=1024,
-        output_channels=1,
-    ):
-        super(Generator, self).__init__()
-
-        # self.device = device
-        self.initial_size = initial_size
-        self.dim = dim
-        self.depth1 = depth1
-        self.depth2 = depth2
-        self.depth3 = depth3
-        self.heads = heads
-        self.mlp_ratio = mlp_ratio
-        self.droprate_rate = drop_rate
-
-        self.mlp = nn.Linear(latent_dim, (self.initial_size**2) * self.dim)
-
-        self.positional_embedding_1 = nn.Parameter(
-            torch.zeros(1, (initial_size**2), self.dim)
-        )
-        self.positional_embedding_2 = nn.Parameter(
-            torch.zeros(1, (initial_size * 2) ** 2, self.dim // 4)
-        )
-        self.positional_embedding_3 = nn.Parameter(
-            torch.zeros(1, (initial_size * 4) ** 2, self.dim // 16)
-        )
-
-        self.TransformerEncoder_encoder1 = TransformerEncoder(
-            depth=self.depth1,
-            dim=self.dim,
-            heads=self.heads,
-            mlp_ratio=self.mlp_ratio,
-            drop_rate=self.droprate_rate,
-        )
-        self.TransformerEncoder_encoder2 = TransformerEncoder(
-            depth=self.depth2,
-            dim=self.dim // 4,
-            heads=self.heads,
-            mlp_ratio=self.mlp_ratio,
-            drop_rate=self.droprate_rate,
-        )
-        self.TransformerEncoder_encoder3 = TransformerEncoder(
-            depth=self.depth3,
-            dim=self.dim // 16,
-            heads=self.heads,
-            mlp_ratio=self.mlp_ratio,
-            drop_rate=self.droprate_rate,
-        )
-
-        self.linear = nn.Sequential(nn.Conv2d(self.dim // 16, output_channels, 1, 1, 0))
-
-    def forward(self, noise):
-        H, W = self.initial_size, self.initial_size
-        x = self.mlp(noise).view(-1, self.initial_size**2, self.dim)
-        # print(x.shape, 1)
-        x = x + self.positional_embedding_1
-        # print(x.shape, 2)
-        x = self.TransformerEncoder_encoder1(x)
-        # print(x.shape, 3)
-        x, H, W = UpSampling(x, H, W)
-        # print(x.shape, 4)
-        x = x + self.positional_embedding_2
-        # print(x.shape, 5)
-        x = self.TransformerEncoder_encoder2(x)
-        # print(x.shape, 6)
-        x, H, W = UpSampling(x, H, W)
-        # print(x.shape, 7)
-        x = x + self.positional_embedding_3
-        # print(x.shape, 8)
-        x = self.TransformerEncoder_encoder3(x)
-        # print(x.shape, 9)
-        x = self.linear(x.permute(0, 2, 1).view(-1, self.dim // 16, H, W))
-        # print(x.shape, 10)
         return x
 
 
@@ -252,6 +164,102 @@ class Discriminator(nn.Module):
         return x
 
 
+class Generator(nn.Module):
+    """docstring for Generator"""
+
+    # ,device=device):
+    def __init__(
+        self,
+        depth1=5,
+        depth2=4,
+        depth3=2,
+        initial_size=8,
+        dim=384,
+        heads=4,
+        mlp_ratio=4,
+        drop_rate=0.0,
+        latent_dim=1024,
+        output_channels=1,
+        psfac=2,
+    ):
+        super(Generator, self).__init__()
+
+        # self.device = device
+        self.initial_size = initial_size
+        self.dim = dim
+        self.depth1 = depth1
+        self.depth2 = depth2
+        self.depth3 = depth3
+        self.heads = heads
+        self.mlp_ratio = mlp_ratio
+        self.droprate_rate = drop_rate
+
+        self.mlp = nn.Linear(latent_dim, (self.initial_size**2) * self.dim)
+
+        self.positional_embedding_1 = nn.Parameter(
+            torch.zeros(1, (initial_size**2), self.dim)
+        )
+        self.positional_embedding_2 = nn.Parameter(
+            torch.zeros(1, (initial_size * (psfac**1)) ** 2, self.dim // (psfac**2))
+        )
+        self.positional_embedding_3 = nn.Parameter(
+            torch.zeros(1, (initial_size * (psfac**2)) ** 2, self.dim // (psfac**4))
+        )
+
+        self.TransformerEncoder_encoder1 = TransformerEncoder(
+            depth=self.depth1,
+            dim=self.dim,
+            heads=self.heads,
+            mlp_ratio=self.mlp_ratio,
+            drop_rate=self.droprate_rate,
+        )
+        self.TransformerEncoder_encoder2 = TransformerEncoder(
+            depth=self.depth2,
+            dim=self.dim // psfac**2,
+            heads=self.heads,
+            mlp_ratio=self.mlp_ratio,
+            drop_rate=self.droprate_rate,
+        )
+        self.TransformerEncoder_encoder3 = TransformerEncoder(
+            depth=self.depth3,
+            dim=self.dim // psfac**4,
+            heads=self.heads,
+            mlp_ratio=self.mlp_ratio,
+            drop_rate=self.droprate_rate,
+        )
+
+        self.linear = nn.Sequential(
+            nn.Conv2d(self.dim // psfac**4, output_channels, 1, 1, 0)
+        )
+        self.psfac = psfac
+
+    def forward(self, noise):
+        H, W = self.initial_size, self.initial_size
+        x = self.mlp(noise).view(-1, self.initial_size**2, self.dim)
+        print(x.shape, 1)
+        x = x + self.positional_embedding_1
+        print(x.shape, 2)
+        x = self.TransformerEncoder_encoder1(x)
+        print(x.shape, 3)
+        x, H, W = UpSampling(x, H, W, psfac=self.psfac)
+        print(x.shape, 4)
+        x = x + self.positional_embedding_2
+        print(x.shape, 5)
+        x = self.TransformerEncoder_encoder2(x)
+        print(x.shape, 6)
+        x, H, W = UpSampling(x, H, W, psfac=self.psfac)
+        print(x.shape, 7)
+        x = x + self.positional_embedding_3
+        print(x.shape, 8)
+        x = self.TransformerEncoder_encoder3(x)
+        print(x.shape, 9)
+        x = self.linear(
+            x.permute(0, 2, 1).view(-1, self.dim // (self.psfac**4), H, W)
+        )
+        # print(x.shape, 10)
+        return x
+
+
 if __name__ == "__main__":
     if torch.cuda.is_available():
         dev = "cuda:0"
@@ -264,13 +272,14 @@ if __name__ == "__main__":
         depth2=1,
         depth3=1,
         initial_size=16,
-        dim=128 * 4,
-        heads=4,
-        mlp_ratio=2,
+        dim=243,
+        heads=1,
+        mlp_ratio=1,
         drop_rate=0.5,
         latent_dim=256,
+        psfac=3,
     ).to(device)
 
-    noise = torch.cuda.FloatTensor(np.random.normal(0, 1, (1, 256)))
+    noise = torch.cuda.FloatTensor(np.random.normal(0, 1, (2, 256)))
     noise = noise.to(device)
     print(generator(noise).shape)

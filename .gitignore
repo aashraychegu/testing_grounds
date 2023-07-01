@@ -37,3 +37,4 @@ images/*
 ./generated_images/*
 *.jpg
 *.tfevents.*
+*.avi
