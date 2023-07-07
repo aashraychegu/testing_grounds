@@ -8,7 +8,8 @@ import time
 import random
 from typing import *
 import torchvision.transforms as transforms
-gblur = transforms.GaussianBlur(11, sigma=(100, 100))
+
+gblur = transforms.GaussianBlur(41, sigma=(100, 100))
 
 
 def calculate_std(a: torch.Tensor, snr: float):
@@ -33,7 +34,8 @@ class CoRe_Dataset_RNoise(Dataset):
         self.raw_length = len(self.spectrograms)
 
         if snrs is None:
-            snrs = [i / 200 for i in range(1, 1001, 5)]
+            snrs = [i / 200 for i in range(1, 401, 2)]
+            # snrs = [i / 200 for i in range(1, 1001, 5)]
             snrs.append(0)
         self.snrlength = len(snrs)
         self.index_map = []
@@ -52,15 +54,16 @@ class CoRe_Dataset_RNoise(Dataset):
         sgindex, snr = self.index_map[index]
         spectrogram = self.spectrograms[sgindex].to(torch.float64)
         params = self.params[sgindex]
-        params = torch.cat(
-            (params, torch.tensor([snr]).to(device=self.device)))
+        params = torch.cat((params, torch.tensor([snr]).to(device=self.device)))
         std = (torch.mean(spectrogram**2) / snr) ** 0.5
         if snr == 0:
             std = 0
         noise = torch.normal(0, std, spectrogram.shape)
-        spectrogram = torch.abs(torch.squeeze(
-            gblur(torch.unsqueeze(spectrogram, 0))) - spectrogram)
-        return spectrogram.to(self.device) + noise.to(self.device), params
+        spectrogram = spectrogram.to(self.device) + noise.to(self.device)
+        spectrogram = torch.abs(
+            torch.squeeze(gblur(torch.unsqueeze(spectrogram, 0))) - spectrogram
+        )
+        return spectrogram, params
 
     def __len__(self):
         return self.length
@@ -95,16 +98,12 @@ def get_new_test_train_validation_datasets(test_split=0.1, valid_split=0.1):
     testval_set = set(random.sample(original, math.ceil(length * p)))
     train_set = set(original) - testval_set
 
-    test_set = set(random.sample(list(testval_set),
-                   math.ceil(length * test_split)))
+    test_set = set(random.sample(list(testval_set), math.ceil(length * test_split)))
     valid_set = set(testval_set) - test_set
 
-    train_ds = CoRe_Dataset_RNoise(
-        sgrams, params, input_index_map=list(train_set))
-    test_ds = CoRe_Dataset_RNoise(
-        sgrams, params, input_index_map=list(test_set))
-    valid_ds = CoRe_Dataset_RNoise(
-        sgrams, params, input_index_map=list(valid_set))
+    train_ds = CoRe_Dataset_RNoise(sgrams, params, input_index_map=list(train_set))
+    test_ds = CoRe_Dataset_RNoise(sgrams, params, input_index_map=list(test_set))
+    valid_ds = CoRe_Dataset_RNoise(sgrams, params, input_index_map=list(valid_set))
 
     return train_ds, test_ds, valid_ds
 
