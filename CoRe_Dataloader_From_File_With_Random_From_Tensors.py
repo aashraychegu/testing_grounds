@@ -9,7 +9,11 @@ import random
 from typing import *
 import torchvision.transforms as transforms
 
-gblur = transforms.GaussianBlur(41, sigma=(100, 100))
+gblur = transforms.GaussianBlur(41, sigma=(100, 100)).to("cuda:0")
+
+
+def power(t):
+    return ((torch.mean(t**2)) ** 0.5).item()
 
 
 def calculate_std(a: torch.Tensor, snr: float):
@@ -52,17 +56,17 @@ class CoRe_Dataset_RNoise(Dataset):
 
     def __getitem__(self, index):
         sgindex, snr = self.index_map[index]
-        spectrogram = self.spectrograms[sgindex].to(torch.float64)
+        spectrogram = self.spectrograms[sgindex].to(torch.float64).to(self.device)
         params = self.params[sgindex]
         params = torch.cat((params, torch.tensor([snr]).to(device=self.device)))
         std = (torch.mean(spectrogram**2) / snr) ** 0.5
         if snr == 0:
             std = 0
-        noise = torch.normal(0, std, spectrogram.shape)
-        spectrogram = spectrogram.to(self.device) + noise.to(self.device)
-        spectrogram = torch.abs(
-            torch.squeeze(gblur(torch.unsqueeze(spectrogram, 0))) - spectrogram
-        )
+        noise = torch.normal(0, std, spectrogram.shape).to(self.device)
+        spectrogram = spectrogram + noise
+        blurred = torch.squeeze(gblur(torch.unsqueeze(spectrogram, 0)))
+        blurred *= power(spectrogram) / power(blurred)
+        spectrogram = spectrogram - blurred
         return spectrogram, params
 
     def __len__(self):
@@ -114,8 +118,8 @@ def get_new_ttv_dataloaders(test_split=0.1, valid_split=0.1):
     )
     return (
         DataLoader(train_ds, batch_size=16, shuffle=True),
-        DataLoader(valid_ds, batch_size=40, shuffle=True),
-        DataLoader(test_ds, batch_size=40, shuffle=True),
+        DataLoader(valid_ds, batch_size=16, shuffle=True),
+        DataLoader(test_ds, batch_size=16, shuffle=True),
     )
 
 
