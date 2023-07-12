@@ -84,24 +84,25 @@ def get_new_test_train_validation_datasets(test_split=0.1, valid_split=0.1):
     sgrams, params = load_raw_from_pth_file()
     original_ds = CoRe_Dataset_RNoise(sgrams, params)
     length = len(original_ds)
-    # print(length)
+    print(length, "length of original set")
     original = original_ds.index_map
     del original_ds
     p = test_split + valid_split
     testval_set = set(random.sample(original, math.ceil(length * p)))
+    print("length of testval set", len(testval_set))
     train_set = set(original) - testval_set
-
+    print("length of train set", len(train_set))
     test_set = set(random.sample(list(testval_set),
                    math.ceil(length * test_split)))
+    print("length of test set", len(test_set))
     valid_set = set(testval_set) - test_set
-
+    print("length of valid set", len(valid_set))
     train_ds = CoRe_Dataset_RNoise(
         sgrams, params, input_index_map=list(train_set))
     test_ds = CoRe_Dataset_RNoise(
         sgrams, params, input_index_map=list(test_set))
     valid_ds = CoRe_Dataset_RNoise(
         sgrams, params, input_index_map=list(valid_set))
-
     return train_ds, test_ds, valid_ds
 
 
@@ -118,7 +119,5 @@ def get_new_ttv_dataloaders(test_split=0.1, valid_split=0.1):
 
 if __name__ == "__main__":
     # train_dl, valid_dl, test_dl = get_new_ttv_dataloaders(0,0)
-    train_dl, valid_dl, test_dl = get_new_test_train_validation_datasets(0, 0)
-
-    print(len(train_dl), len(test_dl), len(valid_dl), "\n")
-    print(train_dl[5][1])
+    train_dl, valid_dl, test_dl = get_new_test_train_validation_datasets(
+        .1, .1)
