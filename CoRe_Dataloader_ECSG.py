@@ -42,7 +42,7 @@ def cut_at_lowest_envelope(hplus, hcross):
     return mhplus[envcut[0][0]:]
 
 
-def wt(postmerger, sam_p):
+def wt(postmerger, sam_p, getfreqs=False):
     sam_f = 1/sam_p
     scales = np.arange(scale_min, scale_max, dscale)
 
@@ -52,6 +52,8 @@ def wt(postmerger, sam_p):
     # Normalising the coefficient matrix using the Frobenius norm
     Z = (np.abs(coefs))/(np.linalg.norm(coefs))
     Z = Z[::5, ::45][:, :400]
+    if getfreqs:
+        return Z, freqs
     return Z
 
 
