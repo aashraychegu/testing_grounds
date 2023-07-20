@@ -102,7 +102,7 @@ class CoRe_DB_Dataset(Dataset):
         cdb_path=p.Path("./CoRe_DB"),
         sel_attr=["id_eos", "id_mass_starA", "id_mass_starB"],
         device="cpu",
-        randsamp=1,
+        randsamp=1.0,
     ):
         self.sel_attr = sel_attr
         self.sync = sync
@@ -143,7 +143,9 @@ class CoRe_DB_Dataset(Dataset):
                         selected_wf,
                         extraction_radii[-1],
                     ]
-                    for i in range(0, 101):
+                    # shiftpercents = range(0, 101, 5)  # creates 101 shifts
+                    shiftpercents = [0]
+                    for i in shiftpercents:
                         inserter = inserter_base.copy()
                         inserter.append(i)
                         self.pspace.append(inserter)
@@ -194,13 +196,15 @@ class CoRe_DB_Dataset(Dataset):
             print("contingency")
         win = planck_window(math.floor(math.log(len(ts) / 2) * 6), len(ts))
 
-        return torch.tensor(pad_width(wt(ts, sam_p), percent_shift)).to(torch.float64)
+        # return torch.tensor(pad_width(wt(ts, sam_p), percent_shift)).to(torch.float64)
+        return torch.tensor(wt(ts, sam_p))
 
     def preprocess_params(self, params):
         outlist = [
             self.eosmap[params["id_eos"]],
             float(params["id_mass_starA"]),
             float(params["id_mass_starB"]),
+            # float(get(power(signal))),
         ]
         return torch.tensor(outlist).to(torch.float32)
 
@@ -250,7 +254,7 @@ def load_raw_from_pth_file(fname="processed_spectrograms.pth"):
 
 
 if __name__ == "__main__":
-    to_pth_file(fname="nodup_processed_spectrograms.pth")
+    to_pth_file(fname="nodup_with_shift_processed_spectrograms.pth")
     a, b = load_pth_file()
     print(len(a), len(b))
     # type: ignore
