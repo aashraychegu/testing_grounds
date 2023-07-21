@@ -44,8 +44,7 @@ class CoRe_Dataset_RNoise(Dataset):
         self.raw_length = len(self.files)
 
         if snrs is None:
-            snrs = [i / 200 for i in range(1, 400, 10)]
-            snrs.append(0)
+            snrs = [0.001 * i / 200 for i in range(1, 201, 5)]
         self.snrlength = len(snrs)
         self.index_map = []
         if input_index_map == []:
@@ -133,5 +132,5 @@ def get_new_train_validation_test_dataloaders(test_split=0.1, valid_split=0.1):
 
 if __name__ == "__main__":
     # train_dl, valid_dl, test_dl = get_new_ttv_dataloaders(0,0)
-    train_dl, valid_dl, test_dl = get_new_test_train_validation_datasets(0.1, 0.1)
+    train_dl, valid_dl, test_dl = get_new_train_validation_test_datasets(0.1, 0.1)
     print(train_dl[0][1])
