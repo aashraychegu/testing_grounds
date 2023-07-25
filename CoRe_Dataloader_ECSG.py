@@ -248,7 +248,7 @@ def load_pth_file(
 
 
 def load_raw_from_pth_file(fname="processed_spectrograms.pth"):
-    spectrograms, parameters = torch.load("processed_spectrograms.pth")
+    spectrograms, parameters = torch.load(fname)
     tensor_dataset = TensorDataset(spectrograms, parameters)
     return spectrograms, parameters
 

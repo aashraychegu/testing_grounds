@@ -20,7 +20,9 @@ def calculate_std(spectrogram: torch.Tensor, snr: float):
 
 
 def mknoise(spectrogram: torch.Tensor, snr: float):
-    std = calculate_std(spectrogram, snr) if snr != 0 else 0
+    if snr == 0:
+        return 0, 0
+    std = calculate_std(spectrogram, snr)
     return torch.normal(0, std, spectrogram.shape), std
 
 
