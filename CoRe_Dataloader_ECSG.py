@@ -6,7 +6,7 @@ import sys
 from os import devnull as print_supression_source
 import numpy as np
 import torch
-from scipy.signal import argrelextrema
+from scipy.signal import argrelextrema                  
 import pywt
 import random
 import math
